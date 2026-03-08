@@ -1,0 +1,139 @@
+# Tangerine Lima VM Template
+# Golden image for running OpenCode agents in isolated VMs.
+# Usage: limactl start --name tangerine-base src/image/tangerine.yaml
+
+# Debian 13 (Trixie) cloud images
+images:
+  - location: "https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-generic-arm64-daily.qcow2"
+    arch: "aarch64"
+  - location: "https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-generic-amd64-daily.qcow2"
+    arch: "x86_64"
+
+# Apple Virtualization.framework for better perf on macOS
+vmType: "vz"
+rosetta:
+  enabled: true
+  binfmt: true
+
+cpus: 4
+memory: "8GiB"
+disk: "20GiB"
+
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+  forwardAgent: false
+
+user:
+  name: "agent"
+  comment: "Tangerine Agent"
+  home: "/home/agent"
+  shell: "/bin/bash"
+
+# No host mounts — repos are cloned inside the VM
+mounts: []
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      export DEBIAN_FRONTEND=noninteractive
+
+      apt-get update -qq
+      apt-get upgrade -y -qq
+
+      apt-get install -y -qq \
+        git \
+        curl \
+        wget \
+        jq \
+        build-essential \
+        openssh-server \
+        ripgrep \
+        fd-find \
+        unzip \
+        ca-certificates \
+        gnupg \
+        sudo
+
+      # Node.js 22 LTS via nodesource
+      mkdir -p /etc/apt/keyrings
+      curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+      echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+        > /etc/apt/sources.list.d/nodesource.list
+      apt-get update -qq
+      apt-get install -y -qq nodejs
+
+      # GitHub CLI (gh)
+      mkdir -p -m 755 /etc/apt/keyrings
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+      chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list
+      apt-get update -qq
+      apt-get install -y -qq gh
+
+      # Docker + Docker Compose
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian trixie stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update -qq
+      apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
+      usermod -aG docker agent
+
+      # OpenCode agent backend
+      npm install -g @opencode/cli
+
+      # Harden SSH — key-only auth
+      sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+      sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+
+      # Workspace directory owned by agent user
+      mkdir -p /workspace
+      chown agent:agent /workspace
+
+      # Sudoers for agent (needed for Docker, package installs in build scripts)
+      echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
+
+      # Cleanup
+      apt-get clean
+      rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Install Bun
+      curl -fsSL https://bun.sh/install | bash
+
+      # PATH setup for both interactive and non-interactive shells
+      cat >> ~/.profile <<'EOF'
+      export BUN_INSTALL="$HOME/.bun"
+      export PATH="$HOME/.local/bin:$BUN_INSTALL/bin:$PATH"
+      EOF
+      cat >> ~/.bashrc <<'EOF'
+      export BUN_INSTALL="$HOME/.bun"
+      export PATH="$HOME/.local/bin:$BUN_INSTALL/bin:$PATH"
+      EOF
+
+      # Pre-configure OpenCode for fully autonomous operation
+      mkdir -p ~/.config/opencode
+      cat > ~/.config/opencode/opencode.json <<'OCEOF'
+      {
+        "model": "anthropic/claude-sonnet-4-20250514",
+        "permissions": {
+          "auto_approve": ["read", "write", "execute"]
+        }
+      }
+      OCEOF
+
+message: |
+  Tangerine VM ready!
+  Workspace: /workspace
+  User: agent

@@ -1,0 +1,100 @@
+// SSE event bridge: subscribes to OpenCode's event stream and relays to consumers.
+// Logs subscription lifecycle and reconnection attempts for debugging agent connectivity.
+
+import { createLogger } from "../logger"
+
+const log = createLogger("events")
+
+export type EventHandler = (event: unknown) => void
+
+export interface SseSubscription {
+  unsubscribe(): void
+}
+
+export async function subscribeToEvents(
+  opencodePort: number,
+  taskId: string,
+  onEvent: EventHandler,
+  options?: { maxReconnectAttempts?: number },
+): Promise<SseSubscription> {
+  const taskLog = log.child({ taskId })
+  const maxAttempts = options?.maxReconnectAttempts ?? 10
+  let cancelled = false
+  let attempt = 0
+
+  taskLog.info("SSE subscribed", { opencodePort })
+
+  async function connect(): Promise<void> {
+    if (cancelled) return
+
+    try {
+      const response = await fetch(`http://localhost:${opencodePort}/event`, {
+        headers: { Accept: "text/event-stream" },
+      })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`SSE connect failed: ${response.status}`)
+      }
+
+      // Reset attempt counter on successful connection
+      if (attempt > 0) {
+        taskLog.info("SSE reconnected", { previousAttempts: attempt })
+      }
+      attempt = 0
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+
+      while (!cancelled) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n\n")
+        // Keep incomplete last chunk in buffer
+        buffer = lines.pop() ?? ""
+
+        for (const block of lines) {
+          if (!block.startsWith("data: ")) continue
+          try {
+            const data = JSON.parse(block.slice(6))
+            taskLog.debug("SSE event received", { eventType: data.type ?? "unknown" })
+            onEvent(data)
+          } catch {
+            // Skip malformed SSE frames
+          }
+        }
+      }
+    } catch (err) {
+      if (cancelled) return
+
+      attempt++
+      if (attempt <= maxAttempts) {
+        taskLog.warn("SSE disconnected, reconnecting", {
+          attempt,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        // Exponential backoff
+        const delay = Math.min(1000 * 2 ** (attempt - 1), 30000)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        return connect()
+      }
+
+      taskLog.error("SSE failed permanently", {
+        attempts: attempt,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  // Start connection in background
+  connect()
+
+  return {
+    unsubscribe() {
+      cancelled = true
+      taskLog.debug("SSE unsubscribed")
+    },
+  }
+}

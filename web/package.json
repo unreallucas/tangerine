@@ -1,0 +1,26 @@
+{
+  "name": "tangerine-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bunx vite",
+    "build": "bunx vite build",
+    "check": "bun x tsc --noEmit"
+  },
+  "dependencies": {
+    "@tangerine/shared": "workspace:*",
+    "react": "^19.1",
+    "react-dom": "^19.1",
+    "react-router-dom": "^7.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0",
+    "@types/react-dom": "^19.0",
+    "@vitejs/plugin-react": "^4.3",
+    "tailwindcss": "^4.0",
+    "@tailwindcss/vite": "^4.0",
+    "typescript": "^5.7",
+    "vite": "^6.2"
+  }
+}

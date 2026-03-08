@@ -1,0 +1,42 @@
+import { useState, useEffect, useCallback, useRef } from "react"
+import type { Task } from "@tangerine/shared"
+import { fetchTasks } from "../lib/api"
+
+const POLL_INTERVAL = 5000
+
+interface UseTasksResult {
+  tasks: Task[]
+  loading: boolean
+  error: string | null
+  refetch: () => void
+}
+
+export function useTasks(status?: string): UseTasksResult {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const statusRef = useRef(status)
+  statusRef.current = status
+
+  const refetch = useCallback(async () => {
+    try {
+      const data = await fetchTasks(statusRef.current)
+      setTasks(data)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch tasks")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    refetch()
+
+    const interval = setInterval(refetch, POLL_INTERVAL)
+    return () => clearInterval(interval)
+  }, [status, refetch])
+
+  return { tasks, loading, error, refetch }
+}

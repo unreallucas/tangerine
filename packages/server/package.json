@@ -1,0 +1,19 @@
+{
+  "name": "tangerine-server",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "check": "bun x tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tangerine/shared": "workspace:*",
+    "hono": "^4.7",
+    "zod": "^3.24"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

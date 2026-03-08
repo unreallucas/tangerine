@@ -1,0 +1,12 @@
+{
+  "name": "tangerine",
+  "private": true,
+  "workspaces": ["packages/*", "web"],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "dev:api": "bun run --filter tangerine-server dev",
+    "dev:web": "bun run --filter tangerine-web dev",
+    "check": "bun run --filter '*' check",
+    "test": "bun run --filter '*' test"
+  }
+}

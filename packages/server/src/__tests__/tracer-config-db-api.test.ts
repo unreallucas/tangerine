@@ -1,0 +1,281 @@
+import { describe, it, expect, beforeEach } from "bun:test"
+import type { Database } from "bun:sqlite"
+import { Hono } from "hono"
+import { createTestDb } from "./helpers"
+import { createTask, getTask, listTasks, updateTaskStatus } from "../db/queries"
+import { mapTaskRow } from "../api/helpers"
+import type { Task } from "@tangerine/shared"
+import type { TaskRow } from "../db/types"
+
+/**
+ * Tracer bullet: Config -> DB -> API response
+ *
+ * Validates the full data path: DB schema -> query functions ->
+ * route handlers -> JSON serialization -> camelCase mapping.
+ *
+ * Since the actual app.ts is still a stub, we wire up a Hono app
+ * manually using the same patterns as the route modules in
+ * packages/server/src/api/routes/tasks.ts. This tests that the
+ * DB queries, helpers, and HTTP layer all work together.
+ */
+describe("tracer: config -> db -> api", () => {
+  let db: Database
+  let app: Hono
+
+  beforeEach(() => {
+    db = createTestDb()
+
+    // Build a Hono app that mirrors the route structure from routes/tasks.ts
+    // and routes/system.ts, wired directly to the DB
+    app = new Hono()
+
+    app.get("/api/health", (c) => {
+      return c.json({ status: "ok", uptime: process.uptime() })
+    })
+
+    app.get("/api/tasks", (c) => {
+      const status = c.req.query("status")
+      const rows = listTasks(db, status)
+      return c.json(rows.map(mapTaskRow))
+    })
+
+    app.get("/api/tasks/:id", (c) => {
+      const row = getTask(db, c.req.param("id"))
+      if (!row) {
+        return c.json({ error: "Task not found" }, 404)
+      }
+      return c.json(mapTaskRow(row))
+    })
+
+    app.post("/api/tasks", async (c) => {
+      const body = await c.req.json<{ repoUrl?: string; title?: string; description?: string }>()
+      if (!body.repoUrl || !body.title) {
+        return c.json({ error: "repoUrl and title are required" }, 400)
+      }
+      const id = crypto.randomUUID()
+      const row = createTask(db, {
+        id,
+        source: "manual",
+        repo_url: body.repoUrl,
+        title: body.title,
+        description: body.description,
+      })
+      return c.json(mapTaskRow(row), 201)
+    })
+
+    app.post("/api/tasks/:id/cancel", async (c) => {
+      const id = c.req.param("id")
+      const row = getTask(db, id)
+      if (!row) {
+        return c.json({ error: "Task not found" }, 404)
+      }
+      updateTaskStatus(db, id, "cancelled")
+      const updated = getTask(db, id)!
+      return c.json(mapTaskRow(updated))
+    })
+  })
+
+  it("GET /api/tasks returns tasks with camelCase field mapping", async () => {
+    createTask(db, {
+      id: "task-abc",
+      source: "github",
+      repo_url: "https://github.com/test/repo",
+      title: "Fix the bug",
+      source_id: "test/repo#42",
+      source_url: "https://github.com/test/repo/issues/42",
+      description: "Something is broken",
+    })
+
+    const res = await app.request("/api/tasks")
+    expect(res.status).toBe(200)
+
+    const tasks = (await res.json()) as Task[]
+    expect(tasks).toHaveLength(1)
+
+    const task = tasks[0]!
+    // Verify camelCase mapping from snake_case DB columns
+    expect(task.id).toBe("task-abc")
+    expect(task.source).toBe("github")
+    expect(task.repoUrl).toBe("https://github.com/test/repo")
+    expect(task.sourceId).toBe("test/repo#42")
+    expect(task.sourceUrl).toBe("https://github.com/test/repo/issues/42")
+    expect(task.title).toBe("Fix the bug")
+    expect(task.description).toBe("Something is broken")
+    expect(task.status).toBe("created")
+    expect(task.vmId).toBeNull()
+    expect(task.branch).toBeNull()
+    expect(task.prUrl).toBeNull()
+    expect(task.createdAt).toBeDefined()
+    expect(task.updatedAt).toBeDefined()
+  })
+
+  it("GET /api/tasks/:id returns a single task", async () => {
+    createTask(db, {
+      id: "task-single",
+      source: "manual",
+      repo_url: "https://github.com/test/repo",
+      title: "Single task",
+    })
+
+    const res = await app.request("/api/tasks/task-single")
+    expect(res.status).toBe(200)
+
+    const task = (await res.json()) as Task
+    expect(task.id).toBe("task-single")
+    expect(task.title).toBe("Single task")
+    expect(task.source).toBe("manual")
+  })
+
+  it("GET /api/tasks/:id returns 404 for non-existent task", async () => {
+    const res = await app.request("/api/tasks/nonexistent")
+    expect(res.status).toBe(404)
+
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toBe("Task not found")
+  })
+
+  it("POST /api/tasks creates a task and returns it", async () => {
+    const res = await app.request("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        repoUrl: "https://github.com/test/repo",
+        title: "New task from API",
+        description: "Created via POST",
+      }),
+    })
+
+    expect(res.status).toBe(201)
+
+    const task = (await res.json()) as Task
+    expect(task.id).toBeDefined()
+    expect(task.title).toBe("New task from API")
+    expect(task.repoUrl).toBe("https://github.com/test/repo")
+    expect(task.description).toBe("Created via POST")
+    expect(task.source).toBe("manual")
+    expect(task.status).toBe("created")
+
+    // Verify task was persisted in DB
+    const dbRow = getTask(db, task.id)
+    expect(dbRow).not.toBeNull()
+    expect(dbRow!.title).toBe("New task from API")
+  })
+
+  it("POST /api/tasks returns 400 when required fields missing", async () => {
+    const res = await app.request("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "No repo URL" }),
+    })
+
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toContain("required")
+  })
+
+  it("POST /api/tasks/:id/cancel updates task status", async () => {
+    createTask(db, {
+      id: "task-cancel",
+      source: "manual",
+      repo_url: "https://github.com/test/repo",
+      title: "Cancel me",
+    })
+
+    const res = await app.request("/api/tasks/task-cancel/cancel", {
+      method: "POST",
+    })
+
+    expect(res.status).toBe(200)
+
+    const task = (await res.json()) as Task
+    expect(task.id).toBe("task-cancel")
+    expect(task.status).toBe("cancelled")
+  })
+
+  it("POST /api/tasks/:id/cancel returns 404 for non-existent task", async () => {
+    const res = await app.request("/api/tasks/ghost/cancel", {
+      method: "POST",
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it("GET /api/health returns ok", async () => {
+    const res = await app.request("/api/health")
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { status: string; uptime: number }
+    expect(body.status).toBe("ok")
+    expect(typeof body.uptime).toBe("number")
+  })
+
+  it("GET /api/tasks filters by status query param", async () => {
+    createTask(db, {
+      id: "t-created",
+      source: "manual",
+      repo_url: "r",
+      title: "Created",
+    })
+    createTask(db, {
+      id: "t-running",
+      source: "manual",
+      repo_url: "r",
+      title: "Running",
+    })
+    updateTaskStatus(db, "t-running", "running")
+
+    const resAll = await app.request("/api/tasks")
+    const all = (await resAll.json()) as Task[]
+    expect(all).toHaveLength(2)
+
+    const resCreated = await app.request("/api/tasks?status=created")
+    const created = (await resCreated.json()) as Task[]
+    expect(created).toHaveLength(1)
+    expect(created[0]!.id).toBe("t-created")
+
+    const resRunning = await app.request("/api/tasks?status=running")
+    const running = (await resRunning.json()) as Task[]
+    expect(running).toHaveLength(1)
+    expect(running[0]!.id).toBe("t-running")
+  })
+
+  it("mapTaskRow converts all snake_case fields to camelCase", () => {
+    const row: TaskRow = {
+      id: "test-id",
+      source: "github",
+      source_id: "owner/repo#1",
+      source_url: "https://github.com/owner/repo/issues/1",
+      repo_url: "https://github.com/owner/repo",
+      title: "Test",
+      description: "desc",
+      status: "running",
+      vm_id: "vm-1",
+      branch: "feat/test",
+      pr_url: "https://github.com/owner/repo/pull/1",
+      user_id: "user-1",
+      opencode_session_id: "session-1",
+      opencode_port: 8080,
+      preview_port: 3000,
+      error: null,
+      created_at: "2025-01-01T00:00:00Z",
+      updated_at: "2025-01-01T01:00:00Z",
+      started_at: "2025-01-01T00:30:00Z",
+      completed_at: null,
+    }
+
+    const mapped = mapTaskRow(row)
+
+    expect(mapped.sourceId).toBe("owner/repo#1")
+    expect(mapped.sourceUrl).toBe("https://github.com/owner/repo/issues/1")
+    expect(mapped.repoUrl).toBe("https://github.com/owner/repo")
+    expect(mapped.vmId).toBe("vm-1")
+    expect(mapped.prUrl).toBe("https://github.com/owner/repo/pull/1")
+    expect(mapped.userId).toBe("user-1")
+    expect(mapped.opencodeSessionId).toBe("session-1")
+    expect(mapped.opencodePort).toBe(8080)
+    expect(mapped.previewPort).toBe(3000)
+    expect(mapped.createdAt).toBe("2025-01-01T00:00:00Z")
+    expect(mapped.updatedAt).toBe("2025-01-01T01:00:00Z")
+    expect(mapped.startedAt).toBe("2025-01-01T00:30:00Z")
+    expect(mapped.completedAt).toBeNull()
+  })
+})
