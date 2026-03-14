@@ -29,11 +29,12 @@ export function taskRoutes(deps: AppDeps): Hono {
 
   app.post("/", async (c) => {
     const body = await c.req.json<{ repoUrl?: string; title?: string; description?: string }>()
-    if (!body.repoUrl || !body.title) {
-      return c.json({ error: "repoUrl and title are required" }, 400)
+    if (!body.title) {
+      return c.json({ error: "title is required" }, 400)
     }
+    const repoUrl = body.repoUrl || deps.config.config.project.repo
     return runEffect(c,
-      deps.taskManager.createTask("manual", body.repoUrl, body.title, body.description).pipe(
+      deps.taskManager.createTask("manual", repoUrl, body.title, body.description).pipe(
         Effect.map(mapTaskRow)
       ),
       { status: 201 }

@@ -8,7 +8,6 @@ interface CreateTaskModalProps {
 }
 
 export function CreateTaskModal({ open, onClose, onCreated }: CreateTaskModalProps) {
-  const [repoUrl, setRepoUrl] = useState("")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -27,17 +26,15 @@ export function CreateTaskModal({ open, onClose, onCreated }: CreateTaskModalPro
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()
-      if (!repoUrl.trim() || !title.trim()) return
+      if (!title.trim()) return
 
       setSubmitting(true)
       setError(null)
       try {
         await createTask({
-          repoUrl: repoUrl.trim(),
           title: title.trim(),
           description: description.trim() || undefined,
         })
-        setRepoUrl("")
         setTitle("")
         setDescription("")
         onCreated()
@@ -48,7 +45,7 @@ export function CreateTaskModal({ open, onClose, onCreated }: CreateTaskModalPro
         setSubmitting(false)
       }
     },
-    [repoUrl, title, description, onCreated, onClose],
+    [title, description, onCreated, onClose],
   )
 
   if (!open) return null
@@ -64,21 +61,6 @@ export function CreateTaskModal({ open, onClose, onCreated }: CreateTaskModalPro
         <h2 className="mb-4 text-lg font-semibold text-neutral-100">Create Task</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="repoUrl" className="mb-1 block text-xs text-neutral-400">
-              Repository URL
-            </label>
-            <input
-              id="repoUrl"
-              type="url"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-              placeholder="https://github.com/org/repo"
-              required
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-tangerine"
-            />
-          </div>
-
           <div>
             <label htmlFor="title" className="mb-1 block text-xs text-neutral-400">
               Title
@@ -122,7 +104,7 @@ export function CreateTaskModal({ open, onClose, onCreated }: CreateTaskModalPro
             </button>
             <button
               type="submit"
-              disabled={submitting || !repoUrl.trim() || !title.trim()}
+              disabled={submitting || !title.trim()}
               className="rounded-lg bg-tangerine px-4 py-2 text-sm font-medium text-white transition hover:bg-tangerine-light disabled:opacity-50"
             >
               {submitting ? "Creating..." : "Create"}
