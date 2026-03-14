@@ -1,14 +1,14 @@
 ---
 name: tangerine-init
-description: Analyze a project codebase and generate Tangerine configuration (.tangerine/config.json + .tangerine/build.sh) for running coding agents in isolated VMs.
+description: Set up a project for Tangerine — analyze the codebase, generate configuration, and guide the user through building images and running the platform.
 metadata:
   author: tung
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Tangerine Init Skill
 
-Generate golden image configuration for a project so it can run on the Tangerine coding agent platform.
+Set up a project to run on the Tangerine coding agent platform. Generates configuration, then guides the user through the full workflow.
 
 ## What You Generate
 
@@ -91,3 +91,64 @@ my-app/
 Only ask if you genuinely can't determine from the codebase:
 - Which repo URL to use (if no git remote found)
 - Preview port (if ambiguous — multiple possible dev servers)
+
+## After Init: Using Tangerine
+
+After writing the config files, guide the user through the next steps.
+
+### Prerequisites
+
+- **Bun** installed
+- **Lima** installed (`brew install lima` on macOS)
+- **tangerine** CLI available globally (`bun link` from the tangerine repo, or `npm i -g tangerine`)
+- **LLM credentials**: either run `opencode auth login` or set `ANTHROPIC_API_KEY` env var
+- **GitHub token**: set `GITHUB_TOKEN` env var (for PR creation and repo cloning)
+
+### First-time Setup
+
+```bash
+# 1. Build the golden image (runs .tangerine/build.sh inside a fresh VM, snapshots it)
+tangerine image build
+
+# 2. Start the server + web dashboard (run from the project directory)
+tangerine start
+```
+
+### Day-to-day Usage
+
+```bash
+# Start tangerine from the project directory
+tangerine start
+
+# The web dashboard opens at http://localhost:3456
+# - View tasks (sourced from GitHub issues or created manually)
+# - Click a task to open the chat UI + live preview
+# - The agent runs in an isolated VM with full access to the project
+
+# Create tasks manually
+tangerine task create --repo owner/repo --title "Fix bug"
+
+# Check warm pool status
+tangerine pool status
+
+# Rebuild the image when project dependencies change
+tangerine image build
+```
+
+### How It Works
+
+1. **Task created** (from GitHub webhook or manually)
+2. **VM acquired** from warm pool (cloned from golden image snapshot)
+3. **Repo cloned** + feature branch created inside VM
+4. **Credentials injected** (OpenCode auth + GitHub token)
+5. **OpenCode agent starts** inside VM, accessible via SSH tunnel
+6. **User chats** with the agent through the web dashboard
+7. **Agent works** — edits code, runs tests, creates PRs
+8. **VM released** back to pool when task completes
+
+### Key Concepts
+
+- **Golden image**: a VM snapshot with your project's runtimes and tools pre-installed (built from `.tangerine/build.sh`). Rebuild when deps change.
+- **Warm pool**: pre-provisioned VMs ready to go, so tasks start instantly instead of waiting for a VM to boot.
+- **One project at a time**: tangerine reads config from cwd. To switch projects, stop and restart from the other project dir.
+- **Terminal attach**: devs can join any running session from terminal with `opencode attach`.
