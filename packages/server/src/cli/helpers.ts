@@ -136,6 +136,10 @@ Usage: tangerine <command> [options]
 
 Commands:
   start              Start the Tangerine server
+  project add        Register a project
+  project list       List registered projects
+  project show       Show project config details
+  project remove     Remove a project
   image build        Build golden image from .tangerine/build.sh
   image list         List available images
   task create        Create a task manually
@@ -146,9 +150,11 @@ Options:
   --help, -h         Show help text
 
 Examples:
-  tangerine start --port 3456
+  tangerine project add --name my-app --repo https://github.com/me/app --image node-dev --setup "npm install"
+  tangerine project list
+  tangerine start
   tangerine image build
-  tangerine task create --repo owner/repo --title "Fix bug"
+  tangerine task create --title "Fix bug"
   tangerine pool status
 `)
 }

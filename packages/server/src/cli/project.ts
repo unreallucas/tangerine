@@ -1,0 +1,209 @@
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs"
+import { join } from "path"
+import { TANGERINE_HOME } from "../config.ts"
+import { printTable } from "./helpers.ts"
+import { createLogger } from "../logger.ts"
+
+const log = createLogger("cli:project")
+
+const CONFIG_PATH = join(TANGERINE_HOME, "config.json")
+
+export async function runProject(argv: string[]): Promise<void> {
+  const subcommand = argv[0]
+
+  if (!subcommand || subcommand === "--help" || subcommand === "-h") {
+    console.log(`
+Usage: tangerine project <subcommand>
+
+Subcommands:
+  add           Register a project
+  list          List registered projects
+  remove        Remove a project by name
+  show <name>   Show project config details
+
+Options for add:
+  --name <name>           Project name (required)
+  --repo <url>            Git repo URL (required)
+  --image <name>          Golden image name (required)
+  --setup <cmd>           Setup command run each session (required)
+  --branch <branch>       Default branch (default: main)
+  --preview-port <port>   Preview port (optional)
+  --preview-path <path>   Preview path (default: /)
+  --test <cmd>            Test command (optional)
+
+Examples:
+  tangerine project add --name my-app --repo https://github.com/me/my-app --image node-dev --setup "npm install && npm run dev"
+  tangerine project list
+  tangerine project show my-app
+  tangerine project remove my-app
+`)
+    process.exit(0)
+  }
+
+  switch (subcommand) {
+    case "add":
+      await addProject(argv.slice(1))
+      break
+    case "list":
+      listProjects()
+      break
+    case "show":
+      showProject(argv[1])
+      break
+    case "remove":
+      removeProject(argv[1])
+      break
+    default:
+      console.error(`Unknown project subcommand: ${subcommand}`)
+      process.exit(1)
+  }
+}
+
+interface RawConfig {
+  projects?: Array<Record<string, unknown>>
+  model?: string
+  integrations?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+function readConfig(): RawConfig {
+  mkdirSync(TANGERINE_HOME, { recursive: true })
+  if (!existsSync(CONFIG_PATH)) {
+    return { projects: [] }
+  }
+  const raw = readFileSync(CONFIG_PATH, "utf-8")
+  return JSON.parse(raw) as RawConfig
+}
+
+function writeConfig(config: RawConfig): void {
+  mkdirSync(TANGERINE_HOME, { recursive: true })
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n")
+}
+
+async function addProject(argv: string[]): Promise<void> {
+  const { parseArgs } = await import("./helpers.ts")
+  const parsed = parseArgs(argv, {
+    name: { alias: "n", required: true },
+    repo: { alias: "r", required: true },
+    image: { alias: "i", required: true },
+    setup: { alias: "s", required: true },
+    branch: { alias: "b" },
+    "preview-port": {},
+    "preview-path": {},
+    test: { alias: "t" },
+  })
+
+  const name = parsed.flags["name"]!
+  const repo = parsed.flags["repo"]!
+  const image = parsed.flags["image"]!
+  const setup = parsed.flags["setup"]!
+  const defaultBranch = parsed.flags["branch"] ?? "main"
+  const previewPort = parsed.flags["preview-port"]
+  const previewPath = parsed.flags["preview-path"]
+  const test = parsed.flags["test"]
+
+  const config = readConfig()
+
+  // Normalize: migrate singular `project` to `projects[]` if needed
+  if (!config.projects) {
+    config.projects = []
+  }
+  if ((config as Record<string, unknown>).project) {
+    config.projects.unshift((config as Record<string, unknown>).project as Record<string, unknown>)
+    delete (config as Record<string, unknown>).project
+  }
+
+  // Check for duplicate
+  if (config.projects.some((p) => p.name === name)) {
+    console.error(`Project "${name}" already exists. Remove it first to re-add.`)
+    process.exit(1)
+  }
+
+  const project: Record<string, unknown> = {
+    name,
+    repo,
+    defaultBranch,
+    image,
+    setup,
+  }
+
+  if (previewPort || previewPath) {
+    project.preview = {
+      port: previewPort ? Number(previewPort) : 3000,
+      path: previewPath ?? "/",
+    }
+  }
+
+  if (test) {
+    project.test = test
+  }
+
+  config.projects.push(project)
+  writeConfig(config)
+
+  console.log(`Project "${name}" added to ${CONFIG_PATH}`)
+  log.info("Project registered", { name, repo, image })
+}
+
+function listProjects(): void {
+  const config = readConfig()
+  const projects = config.projects ?? []
+
+  if (projects.length === 0) {
+    console.log("No projects registered. Add one with: tangerine project add")
+    return
+  }
+
+  printTable(
+    ["NAME", "REPO", "IMAGE", "BRANCH"],
+    projects.map((p) => [
+      String(p.name ?? ""),
+      String(p.repo ?? ""),
+      String(p.image ?? ""),
+      String(p.defaultBranch ?? "main"),
+    ])
+  )
+}
+
+function showProject(name: string | undefined): void {
+  if (!name) {
+    console.error("Usage: tangerine project show <name>")
+    process.exit(1)
+  }
+
+  const config = readConfig()
+  const projects = config.projects ?? []
+  const project = projects.find((p) => p.name === name)
+
+  if (!project) {
+    console.error(`Project "${name}" not found.`)
+    const names = projects.map((p) => String(p.name)).join(", ")
+    if (names) console.error(`Available: ${names}`)
+    process.exit(1)
+  }
+
+  console.log(JSON.stringify(project, null, 2))
+}
+
+function removeProject(name: string | undefined): void {
+  if (!name) {
+    console.error("Usage: tangerine project remove <name>")
+    process.exit(1)
+  }
+
+  const config = readConfig()
+  const projects = config.projects ?? []
+  const index = projects.findIndex((p) => p.name === name)
+
+  if (index === -1) {
+    console.error(`Project "${name}" not found.`)
+    process.exit(1)
+  }
+
+  projects.splice(index, 1)
+  config.projects = projects
+  writeConfig(config)
+
+  console.log(`Project "${name}" removed.`)
+  log.info("Project removed", { name })
+}

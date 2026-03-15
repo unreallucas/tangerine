@@ -25,6 +25,11 @@ async function main(): Promise<void> {
       await runTask(args.slice(1))
       break
     }
+    case "project": {
+      const { runProject } = await import("./project.ts")
+      await runProject(args.slice(1))
+      break
+    }
     case "pool": {
       const { runPool } = await import("./pool.ts")
       await runPool(args.slice(1))
