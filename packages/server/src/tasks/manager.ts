@@ -14,6 +14,7 @@ import type { CleanupDeps } from "./cleanup"
 import type { RetryDeps } from "./retry"
 import { cleanupSession } from "./cleanup"
 import { startSessionWithRetry } from "./retry"
+import { emitStatusChange } from "./events"
 
 const log = createLogger("tasks")
 
@@ -66,6 +67,7 @@ export function createTask(
     })
 
     log.info("Task created", { taskId: id, projectId: params.projectId, source: params.source, title: params.title })
+    emitStatusChange(id, task.status)
 
     // Kick off provisioning in a background fiber so task creation is non-blocking
     yield* Effect.fork(
@@ -97,6 +99,7 @@ export function cancelTask(
       // DB update errors during cancel are non-critical for the cancel flow
       Effect.ignoreLogged
     )
+    emitStatusChange(taskId, "cancelled")
 
     // Clean up running session if active
     if (task.status === "running" || task.status === "provisioning") {
@@ -135,6 +138,7 @@ export function completeTask(
     yield* deps.updateTask(taskId, { status: "done", completed_at: now }).pipe(
       Effect.ignoreLogged
     )
+    emitStatusChange(taskId, "done")
     log.info("Task completed", { taskId, durationMs })
 
     yield* cleanupSession(taskId, deps.cleanupDeps).pipe(

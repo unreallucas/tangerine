@@ -13,6 +13,7 @@ import type { AppDeps } from "../api/app"
 import { DEFAULT_API_PORT } from "@tangerine/shared"
 import * as taskManager from "../tasks/manager"
 import type { TaskManagerDeps } from "../tasks/manager"
+import { onTaskEvent, onStatusChange } from "../tasks/events"
 
 const log = createLogger("cli")
 
@@ -87,8 +88,8 @@ export async function start(): Promise<void> {
         abortTask: (taskId) => taskManager.abortAgent(tmDeps, taskId).pipe(
           Effect.mapError((e) => ({ _tag: e._tag, message: e.message }))
         ),
-        onTaskEvent: () => () => {},
-        onStatusChange: () => () => {},
+        onTaskEvent,
+        onStatusChange,
       },
       pool,
       config,
