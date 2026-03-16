@@ -1,9 +1,7 @@
 import { useState, useCallback } from "react"
-import type { ProjectConfig } from "@tangerine/shared"
+import { useProject } from "../context/ProjectContext"
 
 interface NewAgentFormProps {
-  projects: ProjectConfig[]
-  defaultProject?: string
   onSubmit: (data: { projectId: string; title: string; description?: string; branch?: string }) => void
 }
 
@@ -14,21 +12,21 @@ const suggestedTasks = [
   { icon: "sparkles", label: "Sync database models" },
 ]
 
-export function NewAgentForm({ projects, defaultProject, onSubmit }: NewAgentFormProps) {
+export function NewAgentForm({ onSubmit }: NewAgentFormProps) {
+  const { current } = useProject()
   const [description, setDescription] = useState("")
   const [branch] = useState("main")
-  const [selectedProject] = useState(defaultProject ?? projects[0]?.name ?? "")
 
   const handleSubmit = useCallback(() => {
     const trimmed = description.trim()
-    if (!trimmed || !selectedProject) return
+    if (!trimmed || !current) return
     onSubmit({
-      projectId: selectedProject,
+      projectId: current.name,
       title: trimmed.slice(0, 80),
       description: trimmed,
       branch,
     })
-  }, [description, selectedProject, branch, onSubmit])
+  }, [description, current, branch, onSubmit])
 
   return (
     <div className="flex h-full flex-1 items-center justify-center bg-[#fafafa] p-12">
@@ -74,7 +72,7 @@ export function NewAgentForm({ projects, defaultProject, onSubmit }: NewAgentFor
             {/* Start button */}
             <button
               onClick={handleSubmit}
-              disabled={!description.trim() || !selectedProject}
+              disabled={!description.trim() || !current}
               className="flex items-center gap-1.5 rounded-md bg-[#171717] px-4 py-2 text-white transition hover:bg-[#333] disabled:opacity-30"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

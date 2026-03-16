@@ -1,21 +1,14 @@
-import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import type { ProjectConfig } from "@tangerine/shared"
+import { useProject } from "../context/ProjectContext"
 import { useTasks } from "../hooks/useTasks"
 import { TasksSidebar } from "../components/TasksSidebar"
 import { NewAgentForm } from "../components/NewAgentForm"
-import { createTask, fetchProjects } from "../lib/api"
+import { createTask } from "../lib/api"
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const [projects, setProjects] = useState<ProjectConfig[]>([])
-  const { tasks, refetch } = useTasks()
-
-  useEffect(() => {
-    fetchProjects()
-      .then(setProjects)
-      .catch(() => {})
-  }, [])
+  const { current } = useProject()
+  const { tasks, refetch } = useTasks(current ? { project: current.name } : undefined)
 
   const handleNewAgent = async (data: { projectId: string; title: string; description?: string }) => {
     try {
@@ -33,10 +26,7 @@ export function Dashboard() {
         tasks={tasks}
         onNewAgent={() => {/* already on new agent screen */}}
       />
-      <NewAgentForm
-        projects={projects}
-        onSubmit={handleNewAgent}
-      />
+      <NewAgentForm onSubmit={handleNewAgent} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type { Task } from "@tangerine/shared"
 import { fetchTask } from "../lib/api"
 import { useSession } from "../hooks/useSession"
 import { useTasks } from "../hooks/useTasks"
+import { useProject } from "../context/ProjectContext"
 import { TasksSidebar } from "../components/TasksSidebar"
 import { ChatPanel } from "../components/ChatPanel"
 import { ActivityPanel } from "../components/ActivityPanel"
@@ -11,12 +12,13 @@ import { ActivityPanel } from "../components/ActivityPanel"
 export function TaskDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { current } = useProject()
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
   const [showActivity, setShowActivity] = useState(true)
 
   const session = useSession(id ?? "")
-  const { tasks } = useTasks()
+  const { tasks } = useTasks(current ? { project: current.name } : undefined)
 
   useEffect(() => {
     if (!id) return
