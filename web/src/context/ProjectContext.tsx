@@ -36,7 +36,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         setProjects(data.projects)
         setGlobalModel(data.model)
-        setModels(data.models)
+        setModels(data.models ?? [])
       })
       .catch(() => {})
       .finally(() => setLoading(false))

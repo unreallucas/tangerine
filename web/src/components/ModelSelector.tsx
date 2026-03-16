@@ -18,7 +18,7 @@ export function ModelSelector() {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [open])
 
-  if (!model) return null
+  if (!model || !models.length) return null
 
   return (
     <div className="relative" ref={ref}>
