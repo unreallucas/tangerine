@@ -35,24 +35,19 @@ export function getProjectConfig(config: TangerineConfig, projectId: string): Pr
 }
 
 /**
- * Loads config from ~/tangerine/config.json (primary) with fallback to
- * legacy locations (~/.config/tangerine/config.json, .tangerine/config.json).
+ * Loads config from ~/tangerine/config.json.
  * Validates with Zod and resolves credentials.
  */
 export function loadConfig(): AppConfig {
-  // Ensure ~/tangerine/ exists
   mkdirSync(TANGERINE_HOME, { recursive: true })
 
-  const centralPath = join(TANGERINE_HOME, "config.json")
-  const legacyGlobalPath = join(homedir(), ".config", "tangerine", "config.json")
-  const legacyProjectPath = join(process.cwd(), ".tangerine", "config.json")
-
-  // Try central config first, fall back to legacy locations
-  let raw: Record<string, unknown> | null = readConfigFile(centralPath)
+  const configPath = join(TANGERINE_HOME, "config.json")
+  const raw = readConfigFile(configPath)
   if (!raw) {
-    const legacyGlobal = readConfigFile(legacyGlobalPath) ?? {}
-    const legacyProject = readConfigFile(legacyProjectPath) ?? {}
-    raw = { ...legacyGlobal, ...legacyProject }
+    throw new Error(
+      `No config found at ${configPath}. Register a project first:\n` +
+      `  tangerine project add --name <name> --repo <url> --image <image> --setup "<cmd>"`,
+    )
   }
 
   const config = tangerineConfigSchema.parse(raw)

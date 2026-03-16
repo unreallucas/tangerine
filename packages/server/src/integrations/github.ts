@@ -10,7 +10,7 @@ interface ProjectConfig {
   repo: string
   integrations?: {
     github?: {
-      trigger: {
+      trigger?: {
         type: "label" | "assignee"
         value: string
       }
@@ -45,11 +45,11 @@ export function pollGitHubIssues(
   deps: GitHubDeps,
 ): Effect.Effect<number, GitHubPollError> {
   return Effect.gen(function* () {
-    const trigger = config.integrations?.github?.trigger
-    if (!trigger) return 0
+    if (!config.integrations?.github) return 0
 
+    const trigger = config.integrations.github.trigger
     const repo = config.repo
-    log.debug("Polling GitHub", { repo, trigger: `${trigger.type}:${trigger.value}` })
+    log.debug("Polling GitHub", { repo, trigger: trigger ? `${trigger.type}:${trigger.value}` : "all" })
 
     const response = yield* Effect.tryPromise({
       try: () =>
@@ -81,16 +81,18 @@ export function pollGitHubIssues(
         new GitHubPollError({ message: "Failed to parse GitHub response", cause: e }),
     })
 
-    // Filter issues that match the configured trigger
-    const matching = issues.filter((issue) => {
-      if (trigger.type === "label") {
-        return issue.labels.some((l) => l.name === trigger.value)
-      }
-      if (trigger.type === "assignee") {
-        return issue.assignee?.login === trigger.value
-      }
-      return false
-    })
+    // Filter issues that match the configured trigger (no trigger = all issues)
+    const matching = trigger
+      ? issues.filter((issue) => {
+          if (trigger.type === "label") {
+            return issue.labels.some((l) => l.name === trigger.value)
+          }
+          if (trigger.type === "assignee") {
+            return issue.assignee?.login === trigger.value
+          }
+          return false
+        })
+      : issues
 
     if (matching.length > 0) {
       log.info("Found new issues", { count: matching.length, repo })
