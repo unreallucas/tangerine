@@ -30,9 +30,11 @@ Options for add:
   --preview-port <port>   Preview port (optional)
   --preview-path <path>   Preview path (default: /)
   --test <cmd>            Test command (optional)
+  --ports <ports>         Extra forwarded ports, comma-separated (optional)
 
 Examples:
   tangerine project add --name my-app --repo https://github.com/me/my-app --image node-dev --setup "npm install && npm run dev"
+  tangerine project add --name wp --repo https://github.com/me/wp --image wordpress-dev --setup "npm run env:start" --branch trunk --ports 8086,3306
   tangerine project list
   tangerine project show my-app
   tangerine project remove my-app
@@ -91,6 +93,7 @@ async function addProject(argv: string[]): Promise<void> {
     "preview-port": {},
     "preview-path": {},
     test: { alias: "t" },
+    ports: {},
   })
 
   const name = parsed.flags["name"]!
@@ -101,6 +104,7 @@ async function addProject(argv: string[]): Promise<void> {
   const previewPort = parsed.flags["preview-port"]
   const previewPath = parsed.flags["preview-path"]
   const test = parsed.flags["test"]
+  const portsRaw = parsed.flags["ports"]
 
   const config = readConfig()
 
@@ -136,6 +140,10 @@ async function addProject(argv: string[]): Promise<void> {
 
   if (test) {
     project.test = test
+  }
+
+  if (portsRaw) {
+    project.ports = portsRaw.split(",").map((p) => Number(p.trim()))
   }
 
   config.projects.push(project)

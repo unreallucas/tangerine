@@ -13,6 +13,7 @@ export const projectConfigSchema = z.object({
   setup: z.string(),
   preview: previewConfigSchema.optional(),
   test: z.string().optional(),
+  ports: z.array(z.number()).optional(),
   env: z.record(z.string()).optional(),
   model: z.string().optional(),
 })
