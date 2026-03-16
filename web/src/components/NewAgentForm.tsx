@@ -15,7 +15,7 @@ const suggestedTasks = [
 export function NewAgentForm({ onSubmit }: NewAgentFormProps) {
   const { current } = useProject()
   const [description, setDescription] = useState("")
-  const [branch] = useState("main")
+  const branch = current?.defaultBranch ?? "main"
 
   const handleSubmit = useCallback(() => {
     const trimmed = description.trim()
@@ -52,21 +52,12 @@ export function NewAgentForm({ onSubmit }: NewAgentFormProps) {
           />
           <div className="flex items-center justify-between border-t border-[#e5e5e5] px-3 py-2.5">
             <div className="flex items-center gap-2">
-              {/* Branch selector */}
-              <button className="flex items-center gap-1.5 rounded-md border border-[#e5e5e5] px-2 py-1">
+              <div className="flex items-center gap-1.5 rounded-md border border-[#e5e5e5] px-2 py-1">
                 <svg className="h-3 w-3 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0-12.814a2.25 2.25 0 1 0 0-2.186m0 2.186a2.25 2.25 0 1 0 0 2.186" />
                 </svg>
                 <span className="text-[11px] text-[#0a0a0a]">{branch}</span>
-              </button>
-
-              {/* Model selector */}
-              <button className="flex items-center gap-1.5 rounded-md border border-[#e5e5e5] px-2 py-1">
-                <svg className="h-3 w-3 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-                </svg>
-                <span className="text-[11px] text-[#0a0a0a]">claude-sonnet-4-5</span>
-              </button>
+              </div>
             </div>
 
             {/* Start button */}
@@ -110,28 +101,6 @@ export function NewAgentForm({ onSubmit }: NewAgentFormProps) {
           </div>
         </div>
 
-        {/* Context row */}
-        <div className="flex items-center gap-2 text-[11px] text-[#737373]">
-          <span>Agent can access:</span>
-          <div className="flex items-center gap-1 rounded bg-[#f5f5f5] px-2 py-0.5">
-            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-            </svg>
-            <span>Files</span>
-          </div>
-          <div className="flex items-center gap-1 rounded bg-[#f5f5f5] px-2 py-0.5">
-            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-            <span>Terminal</span>
-          </div>
-          <div className="flex items-center gap-1 rounded bg-[#f5f5f5] px-2 py-0.5">
-            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
-            </svg>
-            <span>Web search</span>
-          </div>
-        </div>
       </div>
     </div>
   )

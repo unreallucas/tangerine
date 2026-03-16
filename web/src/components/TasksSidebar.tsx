@@ -52,12 +52,6 @@ export function TasksSidebar({ tasks, onNewAgent }: TasksSidebarProps) {
           </svg>
           <span className="text-[13px] font-medium">New Agent</span>
         </button>
-        <div className="flex h-[34px] items-center gap-2 rounded-md border border-[#e4e4e4] bg-[#fafafa] px-2.5">
-          <svg className="h-3.5 w-3.5 text-[#777]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-          </svg>
-          <span className="text-[13px] text-[#999]">Search tasks...</span>
-        </div>
       </div>
 
       {/* Divider */}

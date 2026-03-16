@@ -88,11 +88,6 @@ export function ChatPanel({
               </svg>
             </button>
           )}
-          <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-[#f5f5f5]">
-            <svg className="h-4 w-4 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-            </svg>
-          </button>
         </div>
       </div>
 

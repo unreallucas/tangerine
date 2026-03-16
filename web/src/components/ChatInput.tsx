@@ -73,19 +73,8 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
         </button>
       </div>
 
-      {/* Hint row */}
-      <div className="mt-2 flex items-center justify-between">
-        <button className="flex items-center gap-1.5 rounded-md border border-[#e5e5e5] px-2 py-1">
-          <svg className="h-3 w-3 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-          </svg>
-          <span className="text-[11px] font-medium text-[#0a0a0a]">claude-sonnet-4-5</span>
-          <svg className="h-2.5 w-2.5 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-          </svg>
-        </button>
-
-        {isWorking && (
+      {isWorking && (
+        <div className="mt-2 flex justify-end">
           <button
             onClick={onAbort}
             className="flex items-center gap-1 rounded bg-[#e7000b] px-2 py-1"
@@ -95,8 +84,8 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
             </svg>
             <span className="text-[11px] font-medium text-white">Stop agent</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
