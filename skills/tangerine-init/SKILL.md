@@ -3,7 +3,7 @@ name: tangerine-init
 description: Set up a project for Tangerine — analyze the codebase, generate configuration, and guide the user through building images and running the platform.
 metadata:
   author: tung
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Tangerine Init Skill
@@ -12,8 +12,8 @@ Set up a project to run on the Tangerine coding agent platform. Generates config
 
 ## What You Generate
 
-1. **`.tangerine/config.json`** — project config (repo, image name, setup commands, preview port, test command, env vars)
-2. **`.tangerine/build.sh`** — golden image build script (apt packages, runtimes, tools installed on top of Debian 13 base)
+1. **Project registration** via `tangerine project add` — registers the project in `~/tangerine/config.json`
+2. **`~/tangerine/images/<image-name>/build.sh`** — golden image build script (apt packages, runtimes, tools installed on top of Debian 13 base). Create via `tangerine image init <image-name>` or write directly.
 
 ## Workflow
 
@@ -26,15 +26,24 @@ Set up a project to run on the Tangerine coding agent platform. Generates config
    - Test runners and commands
    - Docker/container usage
    - CI config (often reveals required tooling)
-3. **Read the templates** before generating:
-   - `~/.claude/skills/tangerine-init/templates/config.json` for config structure
+3. **Read the template** before generating:
    - `~/.claude/skills/tangerine-init/templates/build.sh` for build script structure
 4. **Present the plan** to the user before writing:
    - Detected stack summary
    - Proposed image name
-   - What goes in `build.sh` vs what goes in `config.json` setup
+   - What goes in `build.sh` vs setup command
    - Preview port and test command
-5. **Write files** after user confirms
+5. **Register the project** using the CLI after user confirms:
+   ```bash
+   tangerine project add \
+     --name <name> \
+     --repo <repo-url> \
+     --image <image-name> \
+     --setup "<setup-command>" \
+     --preview-port <port> \
+     --test "<test-command>"
+   ```
+6. **Write `~/tangerine/images/<image-name>/build.sh`** (or run `tangerine image init <image-name>` to scaffold it)
 
 ## Key Principles
 
@@ -57,7 +66,7 @@ The Debian 13 base VM already has these — do NOT add them to build.sh:
 
 Use descriptive kebab-case: `node-dev`, `wordpress-dev`, `python-django-dev`, `rails-dev`, `fullstack-dev`
 
-Check if `.tangerine/build.sh` already exists in the project before creating a new one.
+Check if `~/tangerine/images/<image-name>/build.sh` already exists before creating a new one.
 
 ### Preview Port
 
@@ -74,17 +83,19 @@ If the project needs additional forwarded ports (database UIs, API servers, etc.
 
 ## File Locations
 
-Everything lives in `.tangerine/` at the project root:
+- **Central config**: `~/tangerine/config.json` — managed by `tangerine project add/remove`, holds all project registrations
+- **Build scripts**: `~/tangerine/images/<image-name>/build.sh` — one per image, scaffold with `tangerine image init`
 
 ```
-my-app/
-  .tangerine/
-    config.json           # project config
-    build.sh              # golden image build script
+~/tangerine/
+  config.json             # all projects registered here (managed by CLI)
+  tangerine.db            # task/VM database
+  images/
+    node-dev/
+      build.sh            # golden image build script
+    wordpress-dev/
+      build.sh
 ```
-
-- Write `.tangerine/config.json` to the project root (cwd)
-- Write `.tangerine/build.sh` to the project root (cwd)
 
 ## What to Ask the User
 
@@ -107,26 +118,39 @@ After writing the config files, guide the user through the next steps.
 ### First-time Setup
 
 ```bash
-# 1. Build the golden image (runs .tangerine/build.sh inside a fresh VM, snapshots it)
+# 1. Register the project (done by this skill via tangerine project add)
+tangerine project add --name my-app --repo https://github.com/me/my-app --image node-dev --setup "npm install && npm run dev"
+
+# 2. Scaffold and edit the build script
+tangerine image init node-dev
+# Edit ~/tangerine/images/node-dev/build.sh
+
+# 3. Build the golden image
 tangerine image build
 
-# 2. Start the server + web dashboard (run from the project directory)
+# 4. Start the server + web dashboard
 tangerine start
 ```
 
 ### Day-to-day Usage
 
 ```bash
-# Start tangerine from the project directory
+# Start tangerine (serves all registered projects)
 tangerine start
 
 # The web dashboard opens at http://localhost:3456
+# - Select project from dropdown
 # - View tasks (sourced from GitHub issues or created manually)
 # - Click a task to open the chat UI + live preview
 # - The agent runs in an isolated VM with full access to the project
 
+# Manage projects
+tangerine project list
+tangerine project show my-app
+tangerine project remove old-app
+
 # Create tasks manually
-tangerine task create --repo owner/repo --title "Fix bug"
+tangerine task create --project my-app --title "Fix bug"
 
 # Check warm pool status
 tangerine pool status
@@ -148,7 +172,7 @@ tangerine image build
 
 ### Key Concepts
 
-- **Golden image**: a VM snapshot with your project's runtimes and tools pre-installed (built from `.tangerine/build.sh`). Rebuild when deps change.
+- **Golden image**: a VM snapshot with your project's runtimes and tools pre-installed (built from `~/tangerine/images/<name>/build.sh`). Rebuild when deps change.
 - **Warm pool**: pre-provisioned VMs ready to go, so tasks start instantly instead of waiting for a VM to boot.
-- **One project at a time**: tangerine reads config from cwd. To switch projects, stop and restart from the other project dir.
+- **Multi-project**: tangerine supports multiple projects from a single server. Register projects with `tangerine project add`.
 - **Terminal attach**: devs can join any running session from terminal with `opencode attach`.

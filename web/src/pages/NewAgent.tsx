@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useProject } from "../../context/ProjectContext"
-import { createTask } from "../../lib/api"
-import { formatModelName } from "../../lib/format"
+import { useProject } from "../context/ProjectContext"
+import { createTask } from "../lib/api"
+import { formatModelName } from "../lib/format"
 
 const suggestedTasks = [
   "Fix failing tests",
@@ -11,7 +11,7 @@ const suggestedTasks = [
   "Update deps",
 ]
 
-export function MobileNewAgent() {
+export function NewAgent() {
   const navigate = useNavigate()
   const { current, model } = useProject()
   const [description, setDescription] = useState("")
@@ -38,8 +38,8 @@ export function MobileNewAgent() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e5e5e5]">
+      {/* Header with back button */}
+      <div className="flex items-center gap-3 border-b border-[#e5e5e5] px-4 py-3">
         <button onClick={() => navigate("/")} className="text-[#0a0a0a]">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -50,8 +50,7 @@ export function MobileNewAgent() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-6">
-        {/* Heading */}
-        <h1 className="text-[20px] font-bold text-[#0a0a0a] leading-tight">
+        <h1 className="text-[20px] font-bold leading-tight text-[#0a0a0a]">
           What should the agent work on?
         </h1>
 
