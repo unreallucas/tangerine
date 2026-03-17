@@ -4,6 +4,7 @@
 import { Effect } from "effect"
 import type { Database } from "bun:sqlite"
 import { createLogger } from "../logger"
+import { waitForSsh } from "./ssh"
 /** VmRow for standalone pool functions (camelCase, not the DB snake_case VmRow) */
 interface PoolVmRow {
   id: string
@@ -188,6 +189,7 @@ export class VMPoolManager {
         }))
 
         await Effect.runPromise(slot.provider.waitForReady(instance.id))
+        await Effect.runPromise(waitForSsh(instance.ip, instance.sshPort ?? 22))
 
         const now = new Date().toISOString()
         this.db.prepare(`
@@ -294,6 +296,8 @@ export class VMPoolManager {
               label,
             }))
             await Effect.runPromise(slot.provider.waitForReady(instance.id))
+            // Wait for SSH to be available before marking as ready
+            await Effect.runPromise(waitForSsh(instance.ip, instance.sshPort ?? 22))
             const now = new Date().toISOString()
             this.db.prepare(`
               INSERT INTO vms (id, label, provider, ip, ssh_port, status, snapshot_id, region, plan, created_at, updated_at)
