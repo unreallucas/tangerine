@@ -201,7 +201,7 @@ export function StatusPage() {
       const [poolData, vmData, imgData] = await Promise.all([
         fetchPool().catch(() => null),
         fetchVms().catch(() => []),
-        fetchImages().catch(() => []),
+        fetchImages(current?.name).catch(() => []),
       ])
       if (cancelled) return
       if (poolData) setPool(poolData)
@@ -211,7 +211,7 @@ export function StatusPage() {
     load()
     const interval = setInterval(load, 10000)
     return () => { cancelled = true; clearInterval(interval) }
-  }, [])
+  }, [current?.name])
 
   return (
     <div className="flex h-full">

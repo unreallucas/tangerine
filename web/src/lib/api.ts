@@ -120,6 +120,7 @@ export async function fetchVms(): Promise<VmInfo[]> {
   return request<VmInfo[]>("/api/vms")
 }
 
-export async function fetchImages(): Promise<ImageInfo[]> {
-  return request<ImageInfo[]>("/api/images")
+export async function fetchImages(project?: string): Promise<ImageInfo[]> {
+  const query = project ? `?project=${encodeURIComponent(project)}` : ""
+  return request<ImageInfo[]>(`/api/images${query}`)
 }
