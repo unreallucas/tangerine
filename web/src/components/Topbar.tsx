@@ -3,7 +3,8 @@ import { ProjectSwitcher } from "./ProjectSwitcher"
 
 export function Topbar() {
   const location = useLocation()
-  const isRuns = location.pathname === "/" || location.pathname.startsWith("/tasks")
+  const isRuns = location.pathname === "/" || location.pathname.startsWith("/tasks") || location.pathname === "/new"
+  const isStatus = location.pathname === "/status"
 
   return (
     <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-[#e5e5e5] bg-[#fafafa] px-4">
@@ -36,6 +37,14 @@ export function Topbar() {
             }`}
           >
             Runs
+          </Link>
+          <Link
+            to="/status"
+            className={`rounded-md px-3 py-1.5 text-[13px] font-medium ${
+              isStatus ? "bg-[#f5f5f5] text-[#0a0a0a]" : "text-[#737373] hover:text-[#0a0a0a]"
+            }`}
+          >
+            Status
           </Link>
         </nav>
       </div>

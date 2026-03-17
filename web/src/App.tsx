@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout"
 import { Dashboard } from "./pages/Dashboard"
 import { TaskDetail } from "./pages/TaskDetail"
 import { NewAgentPage } from "./pages/NewAgentPage"
+import { StatusPage } from "./pages/StatusPage"
 import { ProjectProvider } from "./context/ProjectContext"
 
 export function App() {
@@ -12,6 +13,7 @@ export function App() {
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="new" element={<NewAgentPage />} />
+          <Route path="status" element={<StatusPage />} />
           <Route path="tasks/:id" element={<TaskDetail />} />
         </Route>
       </Routes>

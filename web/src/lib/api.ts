@@ -98,3 +98,28 @@ export async function fetchPool(): Promise<PoolStats> {
 export async function fetchHealth(): Promise<{ status: string; uptime: number }> {
   return request<{ status: string; uptime: number }>("/api/health")
 }
+
+export interface VmInfo {
+  id: string
+  status: string
+  ip: string | null
+  taskId: string | null
+  provider: string
+  createdAt: string
+}
+
+export interface ImageInfo {
+  id: string
+  name: string
+  provider: string
+  snapshotId: string
+  createdAt: string
+}
+
+export async function fetchVms(): Promise<VmInfo[]> {
+  return request<VmInfo[]>("/api/vms")
+}
+
+export async function fetchImages(): Promise<ImageInfo[]> {
+  return request<ImageInfo[]>("/api/images")
+}
