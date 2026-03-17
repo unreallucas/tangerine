@@ -82,18 +82,8 @@ provision:
       apt-get update -qq
       apt-get install -y -qq gh
 
-      # Docker + Docker Compose
-      install -m 0755 -d /etc/apt/keyrings
-      curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-      chmod a+r /etc/apt/keyrings/docker.asc
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian trixie stable" \
-        > /etc/apt/sources.list.d/docker.list
-      apt-get update -qq
-      apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
-      usermod -aG docker agent
-
       # OpenCode agent backend
-      curl -fsSL https://opencode.ai/install | bash
+      npm install -g opencode-ai
 
       # Harden SSH — key-only auth
       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
