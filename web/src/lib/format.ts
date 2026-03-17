@@ -1,7 +1,6 @@
-/** Strip provider prefix (e.g. "anthropic/claude-sonnet-4-20250514" -> "claude-sonnet-4") and date suffix */
+/** Strip date suffix (e.g. "anthropic/claude-sonnet-4-20250514" -> "anthropic/claude-sonnet-4") */
 export function formatModelName(model: string): string {
-  const name = model.includes("/") ? model.split("/").pop()! : model
-  return name.replace(/-\d{8}$/, "")
+  return model.replace(/-\d{8}$/, "")
 }
 
 /** "2m 05s", "1h 30m" */
