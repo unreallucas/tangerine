@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import type { AppDeps } from "../app"
 import { runEffect } from "../effect-helpers"
 import { listVms, listImages } from "../../db/queries"
+import { querySystemLogs } from "../../system-log"
 
 export function systemRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -58,6 +59,16 @@ export function systemRoutes(deps: AppDeps): Hono {
         })
       )
     )
+  })
+
+  app.get("/logs", (c) => {
+    const level = c.req.query("level")?.split(",").filter(Boolean)
+    const logger = c.req.query("logger")?.split(",").filter(Boolean)
+    const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined
+    const since = c.req.query("since") || undefined
+
+    const logs = querySystemLogs(deps.db, { level, logger, limit, since })
+    return c.json(logs)
   })
 
   return app

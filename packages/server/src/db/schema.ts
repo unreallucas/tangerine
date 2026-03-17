@@ -78,4 +78,16 @@ export const SCHEMA = `
     snapshot_id TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level TEXT NOT NULL,
+    logger TEXT NOT NULL,
+    message TEXT NOT NULL,
+    context TEXT,
+    timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_system_logs_logger ON system_logs(logger);
+  CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs(timestamp);
 `

@@ -54,3 +54,15 @@ export type WsServerMessage =
 export type WsClientMessage =
   | { type: "prompt"; text: string }
   | { type: "abort" }
+
+// System logs
+export type LogLevel = "debug" | "info" | "warn" | "error"
+
+export interface SystemLogEntry {
+  id: number
+  timestamp: string
+  level: LogLevel
+  logger: string
+  message: string
+  context: Record<string, unknown> | null
+}

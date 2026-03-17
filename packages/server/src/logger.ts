@@ -1,6 +1,8 @@
 // Structured logger with correlation IDs, operation spans, and child loggers
 // so AI agents can grep by taskId/vmId and reconstruct full timelines.
 
+import { INFRA_LOGGERS, writeSystemLog } from "./system-log"
+
 type LogLevel = "debug" | "info" | "warn" | "error"
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -79,6 +81,11 @@ function makeLogger(loggerName: string, baseContext: Record<string, unknown>): L
       logger: loggerName,
       msg,
       ...merged,
+    }
+
+    // Persist infra logs to SQLite for the Status page
+    if (INFRA_LOGGERS.has(loggerName)) {
+      writeSystemLog(level, loggerName, msg, merged)
     }
 
     const json = JSON.stringify(entry)

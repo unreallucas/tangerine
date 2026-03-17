@@ -1,4 +1,4 @@
-import type { Task, PoolStats, ProjectConfig } from "@tangerine/shared"
+import type { Task, PoolStats, ProjectConfig, SystemLogEntry } from "@tangerine/shared"
 
 const BASE = ""
 
@@ -123,4 +123,19 @@ export async function fetchVms(): Promise<VmInfo[]> {
 export async function fetchImages(project?: string): Promise<ImageInfo[]> {
   const query = project ? `?project=${encodeURIComponent(project)}` : ""
   return request<ImageInfo[]>(`/api/images${query}`)
+}
+
+export async function fetchSystemLogs(filter?: {
+  level?: string[]
+  logger?: string[]
+  limit?: number
+  since?: string
+}): Promise<SystemLogEntry[]> {
+  const params = new URLSearchParams()
+  if (filter?.level?.length) params.set("level", filter.level.join(","))
+  if (filter?.logger?.length) params.set("logger", filter.logger.join(","))
+  if (filter?.limit) params.set("limit", String(filter.limit))
+  if (filter?.since) params.set("since", filter.since)
+  const query = params.toString() ? `?${params}` : ""
+  return request<SystemLogEntry[]>(`/api/logs${query}`)
 }

@@ -8,6 +8,8 @@ export type {
   ActivityEntry,
   WsServerMessage,
   WsClientMessage,
+  LogLevel,
+  SystemLogEntry,
 } from "./types"
 
 export {

@@ -22,6 +22,7 @@ import type { ProviderType } from "../vm/providers/index"
 import { createPoolConfig } from "../vm/pool-config"
 import { getOrCreateClient } from "../agent/client"
 import { SshError, AgentError, HealthCheckError } from "../errors"
+import { initSystemLog, cleanupSystemLogs } from "../system-log"
 
 const log = createLogger("cli")
 
@@ -34,6 +35,8 @@ export async function start(): Promise<void> {
     log.info("Config loaded", { projects: projectNames, home: TANGERINE_HOME })
 
     const db = getDb()
+    initSystemLog(db)
+    cleanupSystemLogs(db)
     log.info("Database initialized")
 
     const providerName: ProviderType = process.platform === "darwin" ? "lima" : "incus"
