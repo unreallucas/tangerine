@@ -68,7 +68,7 @@ async function buildImageCmd(argv: string[]): Promise<void> {
       console.log(`No build script at ${buildScript}`)
       console.log(`Create one with: tangerine image init ${name}`)
     }
-    await build(name)
+    await build(name, log)
     log.info("Image built successfully", { name })
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "MODULE_NOT_FOUND" ||

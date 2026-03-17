@@ -139,3 +139,22 @@ export async function fetchSystemLogs(filter?: {
   const query = params.toString() ? `?${params}` : ""
   return request<SystemLogEntry[]>(`/api/logs${query}`)
 }
+
+export interface BuildStatus {
+  status: "idle" | "building" | "success" | "failed"
+  imageName?: string
+  startedAt?: string
+  finishedAt?: string
+  error?: string
+}
+
+export async function triggerImageBuild(project?: string): Promise<void> {
+  await request<unknown>("/api/images/build", {
+    method: "POST",
+    body: JSON.stringify({ project }),
+  })
+}
+
+export async function fetchBuildStatus(): Promise<BuildStatus> {
+  return request<BuildStatus>("/api/images/build-status")
+}

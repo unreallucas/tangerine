@@ -40,6 +40,10 @@ export interface AppDeps {
   pool: {
     getPoolStats(): Effect.Effect<unknown, TaggedError>
   }
+  imageBuild: {
+    start(imageName: string): { ok: true } | { ok: false; reason: string }
+    getStatus(): { status: "idle" } | { status: "building" | "success" | "failed"; imageName: string; startedAt: string; finishedAt?: string; error?: string }
+  }
   config: AppConfig
 }
 

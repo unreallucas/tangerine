@@ -61,6 +61,26 @@ export function systemRoutes(deps: AppDeps): Hono {
     )
   })
 
+  app.post("/images/build", async (c) => {
+    const body = await c.req.json().catch(() => ({})) as { project?: string }
+    const projectId = body.project
+    const project = projectId
+      ? deps.config.config.projects.find((p) => p.name === projectId)
+      : deps.config.config.projects[0]
+    if (!project) {
+      return c.json({ error: "Unknown project" }, 400)
+    }
+    const result = deps.imageBuild.start(project.image)
+    if (!result.ok) {
+      return c.json({ error: result.reason }, 409)
+    }
+    return c.json({ status: "building", imageName: project.image }, 202)
+  })
+
+  app.get("/images/build-status", (c) => {
+    return c.json(deps.imageBuild.getStatus())
+  })
+
   app.get("/logs", (c) => {
     const level = c.req.query("level")?.split(",").filter(Boolean)
     const logger = c.req.query("logger")?.split(",").filter(Boolean)

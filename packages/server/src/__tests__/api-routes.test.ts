@@ -60,6 +60,10 @@ function createMockDeps(db: Database): AppDeps {
         ghHost: "github.com",
       },
     } satisfies AppDeps["config"],
+    imageBuild: {
+      start() { return { ok: true } },
+      getStatus() { return { status: "idle" } },
+    },
   }
 }
 

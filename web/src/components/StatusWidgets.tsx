@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import type { Task, PoolStats, SystemLogEntry } from "@tangerine/shared"
-import { fetchSystemLogs, type VmInfo, type ImageInfo } from "../lib/api"
+import { fetchSystemLogs, type VmInfo, type ImageInfo, type BuildStatus } from "../lib/api"
 import { formatRelativeTime } from "../lib/format"
 
 /* ── Status badge ── */
@@ -92,37 +92,108 @@ export function PoolCard({ pool }: { pool: PoolStats }) {
   )
 }
 
-export function ImageCard({ image, projectImage }: { image: ImageInfo | null; projectImage?: string }) {
+export function ImageCard({ image, projectImage, buildStatus, onBuild }: {
+  image: ImageInfo | null
+  projectImage?: string
+  buildStatus: BuildStatus
+  onBuild: () => void
+}) {
+  const isBuilding = buildStatus.status === "building"
+  const isFailed = buildStatus.status === "failed"
   const built = !!image
+
+  // Badge state
+  const badge = isBuilding
+    ? { label: "Building…", color: "var(--color-status-info-text)", bg: "var(--color-status-info-bg)", icon: true }
+    : isFailed
+      ? { label: "Failed", color: "var(--color-status-error-text)", bg: "var(--color-status-error-bg)", icon: false }
+      : built
+        ? { label: "Built", color: "var(--color-status-success-text)", bg: "var(--color-status-success-bg)", icon: false }
+        : { label: "Not Built", color: "#a16207", bg: "#fefce8", icon: false }
 
   return (
     <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-edge p-3.5 md:gap-3 md:p-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-medium text-fg-muted">Golden Image</span>
-        <span
-          className="rounded-xl px-2.5 py-0.5 text-[11px] font-semibold"
-          style={built
-            ? { color: "var(--color-status-success-text)", backgroundColor: "var(--color-status-success-bg)" }
-            : { color: "var(--color-status-warning-text)", backgroundColor: "var(--color-status-warning-bg)" }
-          }
-        >
-          {built ? "Built" : "Not Built"}
+        <span className="flex items-center gap-1.5 rounded-xl px-2.5 py-0.5 text-[11px] font-semibold" style={{ color: badge.color, backgroundColor: badge.bg }}>
+          {badge.icon && (
+            <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
+            </svg>
+          )}
+          {badge.label}
         </span>
       </div>
-      {built ? (
-        <div className="flex items-center justify-between">
+
+      {/* Body — varies by state */}
+      {isBuilding ? (
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <svg className="h-3.5 w-3.5 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
             </svg>
-            <span className="text-[13px] font-medium text-fg">{image.name}</span>
+            <span className="text-[13px] font-medium text-fg">{buildStatus.imageName ?? projectImage}</span>
           </div>
-          <span className="text-[12px] text-fg-muted">{image.snapshotId.slice(0, 9)} · {formatRelativeTime(image.createdAt)}</span>
+          <span className="text-[12px] text-fg-muted">Running build…</span>
+          {buildStatus.startedAt && (
+            <span className="text-[11px] text-fg-faint">Started {formatRelativeTime(buildStatus.startedAt)}</span>
+          )}
+        </div>
+      ) : isFailed ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <svg className="h-3.5 w-3.5 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+            <span className="text-[13px] font-medium text-fg">{buildStatus.imageName ?? projectImage}</span>
+          </div>
+          {buildStatus.error && (
+            <span className="text-[12px] text-status-error">{buildStatus.error}</span>
+          )}
+          <div className="flex justify-end md:justify-end">
+            <button onClick={onBuild} className="flex items-center gap-1.5 rounded-md bg-fg px-3.5 py-1.5 text-[13px] font-medium text-bg">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+              </svg>
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : built ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <svg className="h-3.5 w-3.5 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+              </svg>
+              <span className="text-[13px] font-medium text-fg">{image.name}</span>
+            </div>
+            <span className="text-[12px] text-fg-muted">{image.snapshotId.slice(0, 9)} · {formatRelativeTime(image.createdAt)}</span>
+          </div>
+          <div className="flex justify-end">
+            <button onClick={onBuild} className="flex items-center gap-1.5 rounded-md bg-surface-secondary px-3 py-1 text-[12px] font-medium text-fg-muted hover:text-fg">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+              </svg>
+              Rebuild
+            </button>
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-1">
-          <span className="text-[13px] text-fg-muted">{projectImage ?? "No image configured"}</span>
-          <span className="text-[12px] text-fg-faint">Run: tangerine image build</span>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-[13px] text-fg-muted">{projectImage ?? "No image configured"}</span>
+            <span className="text-[12px] text-fg-faint">No image built yet. Build one to start provisioning VMs.</span>
+          </div>
+          <div className="flex md:justify-end">
+            <button onClick={onBuild} className="flex w-full items-center justify-center gap-1.5 rounded-md bg-fg px-3.5 py-1.5 text-[13px] font-medium text-bg md:w-auto">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
+              </svg>
+              Build Image
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -213,7 +284,7 @@ const LOG_FILTERS: Array<{ label: string; value: string[] | null; level?: string
   { label: "All", value: null },
   { label: "Pool", value: ["pool", "cli:pool"] },
   { label: "Lifecycle", value: ["lifecycle"] },
-  { label: "Image", value: ["cli:image"] },
+  { label: "Image", value: ["cli:image", "image:build"] },
   { label: "SSH", value: ["ssh"] },
   { label: "Errors", value: null, level: ["error"] },
 ]

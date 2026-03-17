@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import type { PoolStats } from "@tangerine/shared"
 import { useProject } from "../context/ProjectContext"
 import { useTaskSearch } from "../hooks/useTaskSearch"
 import { TasksSidebar } from "../components/TasksSidebar"
 import { ActiveRunsCard, PoolCard, ImageCard, VmList, SystemLog } from "../components/StatusWidgets"
-import { fetchPool, fetchVms, fetchImages, type VmInfo, type ImageInfo } from "../lib/api"
+import { fetchPool, fetchVms, fetchImages, fetchBuildStatus, triggerImageBuild, type VmInfo, type ImageInfo, type BuildStatus } from "../lib/api"
 
 export function StatusPage() {
   const navigate = useNavigate()
@@ -14,22 +14,32 @@ export function StatusPage() {
   const [pool, setPool] = useState<PoolStats | null>(null)
   const [vms, setVms] = useState<VmInfo[]>([])
   const [images, setImages] = useState<ImageInfo[]>([])
+  const [buildStatus, setBuildStatus] = useState<BuildStatus>({ status: "idle" })
+
+  const loadAll = useCallback(async () => {
+    const [poolData, vmData, imgData, bsData] = await Promise.all([
+      fetchPool().catch(() => null),
+      fetchVms().catch(() => []),
+      fetchImages(current?.name).catch(() => []),
+      fetchBuildStatus().catch(() => ({ status: "idle" as const })),
+    ])
+    if (poolData) setPool(poolData)
+    setVms(vmData as VmInfo[])
+    setImages(imgData as ImageInfo[])
+    setBuildStatus(bsData)
+  }, [current?.name])
+
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      const [poolData, vmData, imgData] = await Promise.all([
-        fetchPool().catch(() => null),
-        fetchVms().catch(() => []),
-        fetchImages(current?.name).catch(() => []),
-      ])
-      if (cancelled) return
-      if (poolData) setPool(poolData)
-      setVms(vmData as VmInfo[])
-      setImages(imgData as ImageInfo[])
-    }
-    load()
-    const interval = setInterval(load, 10000)
-    return () => { cancelled = true; clearInterval(interval) }
+    loadAll()
+    const interval = setInterval(loadAll, 10000)
+    return () => clearInterval(interval)
+  }, [loadAll])
+
+  const handleBuild = useCallback(async () => {
+    await triggerImageBuild(current?.name).catch(() => {})
+    // Immediate refetch to show building state
+    const bs = await fetchBuildStatus().catch(() => ({ status: "idle" as const }))
+    setBuildStatus(bs)
   }, [current?.name])
 
   return (
@@ -64,7 +74,7 @@ export function StatusPage() {
             <div className="flex flex-col gap-4 md:flex-row md:gap-4">
               <ActiveRunsCard tasks={tasks} />
               {pool && <PoolCard pool={pool} />}
-              <ImageCard image={images[0] ?? null} projectImage={current?.image} />
+              <ImageCard image={images[0] ?? null} projectImage={current?.image} buildStatus={buildStatus} onBuild={handleBuild} />
             </div>
 
             {/* VM list */}

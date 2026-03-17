@@ -23,6 +23,7 @@ import { createPoolConfig } from "../vm/pool-config"
 import { getOrCreateClient } from "../agent/client"
 import { SshError, AgentError, HealthCheckError } from "../errors"
 import { initSystemLog, cleanupSystemLogs } from "../system-log"
+import { startBuild, getBuildStatus } from "../image/build-service"
 
 const log = createLogger("cli")
 
@@ -196,6 +197,10 @@ export async function start(): Promise<void> {
         onStatusChange,
       },
       pool,
+      imageBuild: {
+        start: startBuild,
+        getStatus: getBuildStatus,
+      },
       config,
     }
 

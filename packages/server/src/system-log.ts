@@ -17,6 +17,7 @@ export const INFRA_LOGGERS = new Set([
   "cli:image",
   "cli:task",
   "github",
+  "image:build",
 ])
 
 let _db: Database | null = null

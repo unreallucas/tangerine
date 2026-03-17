@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * Golden image build script.
  * Creates a Lima VM from tangerine.yaml, runs ~/tangerine/images/<name>/build.sh,
@@ -16,6 +15,7 @@ import { sshExec, waitForSsh } from "../vm/ssh.ts";
 import { getDb } from "../db/index.ts";
 import { createImage } from "../db/queries.ts";
 import { TANGERINE_HOME } from "../config.ts";
+import type { Logger } from "../logger.ts";
 
 const TEMPLATE_PATH = resolve(import.meta.dir, "tangerine.yaml");
 
@@ -29,21 +29,19 @@ export function imageDir(imageName: string): string {
   return join(TANGERINE_HOME, "images", imageName);
 }
 
-export async function buildImage(imageName: string): Promise<void> {
+export async function buildImage(imageName: string, log: Logger): Promise<void> {
   const buildScriptPath = join(imageDir(imageName), "build.sh");
   const goldenName = goldenVmName(imageName);
   const provider = new LimaProvider({ templatePath: TEMPLATE_PATH });
   const db = getDb();
 
-  console.log(`Building golden image: ${imageName}`);
-  console.log(`Template: ${TEMPLATE_PATH}`);
-  console.log(`Golden VM: ${goldenName}`);
+  log.info("Building golden image", { imageName, template: TEMPLATE_PATH, goldenVm: goldenName });
 
   // Check if a golden VM already exists — destroy it first
   try {
     const existing = await Effect.runPromise(provider.getInstance(goldenName));
     if (existing) {
-      console.log(`\n==> Destroying existing golden VM: ${goldenName}`);
+      log.info("Destroying existing golden VM", { goldenVm: goldenName });
       await Effect.runPromise(provider.destroyInstance(goldenName));
     }
   } catch {
@@ -51,25 +49,25 @@ export async function buildImage(imageName: string): Promise<void> {
   }
 
   // Step 1: Create Lima VM from template
-  console.log("\n==> Creating VM from template...");
+  log.info("Creating VM from template");
   const instance = await Effect.runPromise(provider.createInstance({
     region: "local",
     plan: "4cpu-8gb",
     label: goldenName,
   }));
-  console.log(`VM created: ${instance.id} (ip: ${instance.ip}, port: ${instance.sshPort})`);
+  log.info("VM created", { id: instance.id, ip: instance.ip, sshPort: instance.sshPort });
 
   // Step 2: Wait for SSH
-  console.log("\n==> Waiting for SSH...");
+  log.info("Waiting for SSH");
   await Effect.runPromise(waitForSsh(
     instance.ip,
     instance.sshPort ?? 22,
   ));
-  console.log("SSH ready");
+  log.info("SSH ready");
 
   // Step 3: Run project's build script if it exists
   if (existsSync(buildScriptPath)) {
-    console.log(`\n==> Running build script: ${buildScriptPath}`);
+    log.info("Running build script", { path: buildScriptPath });
     const scriptContent = await Bun.file(buildScriptPath).text();
     const scriptBase64 = Buffer.from(scriptContent).toString("base64");
 
@@ -95,7 +93,7 @@ export async function buildImage(imageName: string): Promise<void> {
       instance.sshPort ?? 22,
       "bash -l /tmp/build.sh",
     ));
-    if (buildResult) console.log(buildResult);
+    if (buildResult) log.info("Build script output", { output: buildResult });
 
     // Clean up build script
     await Effect.runPromise(sshExec(
@@ -104,14 +102,13 @@ export async function buildImage(imageName: string): Promise<void> {
       "rm -f /tmp/build.sh",
     ));
   } else {
-    console.log(`\n==> No build script at ${buildScriptPath}, using base image only`);
+    log.info("No build script found, using base image only", { path: buildScriptPath });
   }
 
   // Step 4: Stop the VM — keep it as the golden source for cloning
-  // No snapshot needed: `limactl clone` uses APFS clonefile (CoW, instant, space-efficient)
-  console.log("\n==> Stopping golden VM...");
+  log.info("Stopping golden VM");
   await Effect.runPromise(provider.stopInstance(goldenName));
-  console.log("Golden VM stopped (kept as clone source)");
+  log.info("Golden VM stopped (kept as clone source)");
 
   // Step 5: Record in DB
   const imageId = `img-${imageName}-${Date.now()}`;
@@ -121,21 +118,5 @@ export async function buildImage(imageName: string): Promise<void> {
     provider: "lima",
     snapshot_id: `clone:${goldenName}`,
   }));
-  console.log(`Image recorded in DB: ${imageId}`);
-
-  console.log(`\nGolden image "${imageName}" built successfully.`);
-  console.log(`Clone source: ${goldenName}`);
-  console.log(`Pool VMs will be cloned from this VM using APFS copy-on-write.`);
+  log.info("Golden image built successfully", { imageId, cloneSource: goldenName });
 }
-
-// CLI entry point
-const imageName = process.argv[2];
-if (!imageName) {
-  console.error("Usage: bun run packages/server/src/image/build.ts <image-name>");
-  process.exit(1);
-}
-
-buildImage(imageName).catch((err) => {
-  console.error(`\nBuild failed: ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
-});
