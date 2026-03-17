@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import type { Task, PoolStats, SystemLogEntry } from "@tangerine/shared"
-import { fetchSystemLogs, type VmInfo, type ImageInfo, type BuildStatus } from "../lib/api"
+import { fetchSystemLogs, fetchBuildLog, type VmInfo, type ImageInfo, type BuildStatus } from "../lib/api"
 import { formatRelativeTime } from "../lib/format"
 
 /* ── Status badge ── */
@@ -92,11 +92,59 @@ export function PoolCard({ pool }: { pool: PoolStats }) {
   )
 }
 
-export function ImageCard({ image, projectImage, buildStatus, onBuild }: {
+/* ── Build Log viewer ── */
+
+function BuildLogViewer({ project }: { project?: string }) {
+  const [log, setLog] = useState("")
+  const [open, setOpen] = useState(false)
+  const scrollRef = useRef<HTMLPreElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    async function poll() {
+      const data = await fetchBuildLog(project).catch(() => null)
+      if (cancelled || !data) return
+      setLog(data.content)
+      // Auto-scroll to bottom
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      }
+    }
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [open, project])
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 self-start text-[11px] font-medium text-fg-muted hover:text-fg"
+      >
+        <svg className={`h-3 w-3 transition-transform ${open ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        Build Log
+      </button>
+      {open && (
+        <pre
+          ref={scrollRef}
+          className="max-h-[300px] overflow-auto rounded-md bg-surface-secondary p-3 font-mono text-[11px] leading-relaxed text-fg-muted"
+        >
+          {log || "No build log available"}
+        </pre>
+      )}
+    </div>
+  )
+}
+
+export function ImageCard({ image, projectImage, buildStatus, onBuild, project }: {
   image: ImageInfo | null
   projectImage?: string
   buildStatus: BuildStatus
   onBuild: () => void
+  project?: string
 }) {
   const isBuilding = buildStatus.status === "building"
   const isFailed = buildStatus.status === "failed"
@@ -139,6 +187,7 @@ export function ImageCard({ image, projectImage, buildStatus, onBuild }: {
           {buildStatus.startedAt && (
             <span className="text-[11px] text-fg-faint">Started {formatRelativeTime(buildStatus.startedAt)}</span>
           )}
+          <BuildLogViewer project={project} />
         </div>
       ) : isFailed ? (
         <div className="flex flex-col gap-2">
@@ -151,6 +200,7 @@ export function ImageCard({ image, projectImage, buildStatus, onBuild }: {
           {buildStatus.error && (
             <span className="text-[12px] text-status-error">{buildStatus.error}</span>
           )}
+          <BuildLogViewer project={project} />
           <div className="flex justify-end md:justify-end">
             <button onClick={onBuild} className="flex items-center gap-1.5 rounded-md bg-fg px-3.5 py-1.5 text-[13px] font-medium text-bg">
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -1,9 +1,11 @@
+import { existsSync, readFileSync, statSync } from "fs"
 import { Effect } from "effect"
 import { Hono } from "hono"
 import type { AppDeps } from "../app"
 import { runEffect } from "../effect-helpers"
 import { listVms, listImages } from "../../db/queries"
 import { querySystemLogs } from "../../system-log"
+import { buildLogPath } from "../../image/build"
 
 export function systemRoutes(deps: AppDeps): Hono {
   const app = new Hono()
@@ -79,6 +81,28 @@ export function systemRoutes(deps: AppDeps): Hono {
 
   app.get("/images/build-status", (c) => {
     return c.json(deps.imageBuild.getStatus())
+  })
+
+  app.get("/images/build-log", (c) => {
+    const project = c.req.query("project") || undefined
+    const projectConfig = project
+      ? deps.config.config.projects.find((p) => p.name === project)
+      : deps.config.config.projects[0]
+    const imageName = projectConfig?.image
+    if (!imageName) {
+      return c.text("No project configured", 400)
+    }
+    const logPath = buildLogPath(imageName)
+    if (!existsSync(logPath)) {
+      return c.text("No build log available", 404)
+    }
+    // Support tailing: ?offset=<bytes> returns content from that byte offset
+    const offset = Number(c.req.query("offset") ?? "0")
+    const size = statSync(logPath).size
+    const content = offset < size
+      ? readFileSync(logPath, "utf-8").slice(offset)
+      : ""
+    return c.json({ content, size })
   })
 
   app.get("/logs", (c) => {

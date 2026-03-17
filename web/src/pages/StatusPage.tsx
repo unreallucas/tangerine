@@ -74,7 +74,7 @@ export function StatusPage() {
             <div className="flex flex-col gap-4 md:flex-row md:gap-4">
               <ActiveRunsCard tasks={tasks} />
               {pool && <PoolCard pool={pool} />}
-              <ImageCard image={images[0] ?? null} projectImage={current?.image} buildStatus={buildStatus} onBuild={handleBuild} />
+              <ImageCard image={images[0] ?? null} projectImage={current?.image} buildStatus={buildStatus} onBuild={handleBuild} project={current?.name} />
             </div>
 
             {/* VM list */}

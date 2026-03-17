@@ -158,3 +158,11 @@ export async function triggerImageBuild(project?: string): Promise<void> {
 export async function fetchBuildStatus(): Promise<BuildStatus> {
   return request<BuildStatus>("/api/images/build-status")
 }
+
+export async function fetchBuildLog(project?: string, offset = 0): Promise<{ content: string; size: number }> {
+  const params = new URLSearchParams()
+  if (project) params.set("project", project)
+  if (offset > 0) params.set("offset", String(offset))
+  const query = params.toString() ? `?${params}` : ""
+  return request<{ content: string; size: number }>(`/api/images/build-log${query}`)
+}
