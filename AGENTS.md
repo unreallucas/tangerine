@@ -76,3 +76,17 @@ Use these skills when writing or reviewing web UI code:
 - **Stable callbacks**: Use functional `setState` to avoid re-render dependencies
 - **Parallel fetches**: Use `Promise.all()` for independent async operations
 - **Defer heavy imports**: Use `React.lazy()` / dynamic imports for heavy components not needed on initial load
+
+## Testing
+
+- `bun test` runs all tests across workspaces
+- **Always add tests** for new components, new lib functions, new API routes, and bug fixes
+- Architecture tests in `web/src/__tests__/architecture.test.ts` enforce structural rules — keep them passing
+- Test files: `web/src/__tests__/` (web), `packages/server/src/__tests__/` (API)
+
+### Test categories
+- **Unit**: `web/src/__tests__/lib.test.ts` — pure functions in `lib/`
+- **Architecture**: `web/src/__tests__/architecture.test.ts` — no mobile files, no inline components, no JS viewport detection
+- **Hooks**: `web/src/__tests__/hooks.test.tsx` — React hook state logic
+- **Components**: `web/src/__tests__/components.test.tsx` — render + interaction tests
+- **API**: `packages/server/src/__tests__/api-routes.test.ts` — Hono route contracts
