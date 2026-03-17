@@ -41,6 +41,7 @@ export const integrationsSchema = z.object({
 })
 
 const defaultModels = [
+  "openai/gpt-5.4",
   "anthropic/claude-sonnet-4-20250514",
   "anthropic/claude-opus-4-20250514",
   "anthropic/claude-haiku-4-20250414",
@@ -48,7 +49,7 @@ const defaultModels = [
 
 export const tangerineConfigSchema = z.object({
   projects: z.array(projectConfigSchema).min(1),
-  model: z.string().default("anthropic/claude-sonnet-4-20250514"),
+  model: z.string().default("openai/gpt-5.4"),
   models: z.array(z.string()).default(defaultModels),
   integrations: integrationsSchema.optional(),
   pool: poolConfigSchema.default({}),
