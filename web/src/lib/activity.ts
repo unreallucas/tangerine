@@ -1,18 +1,20 @@
 /** Shared activity/event helpers used by ActivityPanel and mobile activities */
 
 export interface EventStyle {
-  bg: string
-  dot: string
+  /** Tailwind bg class for the dot container */
+  bgClass: string
+  /** Tailwind bg class for the inner dot */
+  dotClass: string
 }
 
 export const EVENT_STYLES: Record<string, EventStyle> = {
-  read:    { bg: "#3b82f620", dot: "#3b82f6" },
-  write:   { bg: "#8b5cf620", dot: "#8b5cf6" },
-  edit:    { bg: "#8b5cf620", dot: "#8b5cf6" },
-  bash:    { bg: "#3b82f620", dot: "#3b82f6" },
-  search:  { bg: "#f59e0b20", dot: "#f59e0b" },
-  test:    { bg: "#22c55e20", dot: "#22c55e" },
-  default: { bg: "#3b82f620", dot: "#3b82f6" },
+  read:    { bgClass: "bg-blue-500/10",   dotClass: "bg-blue-500" },
+  write:   { bgClass: "bg-violet-500/10", dotClass: "bg-violet-500" },
+  edit:    { bgClass: "bg-violet-500/10", dotClass: "bg-violet-500" },
+  bash:    { bgClass: "bg-blue-500/10",   dotClass: "bg-blue-500" },
+  search:  { bgClass: "bg-amber-500/10",  dotClass: "bg-amber-500" },
+  test:    { bgClass: "bg-green-500/10",  dotClass: "bg-green-500" },
+  default: { bgClass: "bg-blue-500/10",   dotClass: "bg-blue-500" },
 }
 
 export function getEventType(content: string): string {

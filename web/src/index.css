@@ -6,6 +6,34 @@
   --color-tangerine-dark: #ea580c;
 
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Semantic surface colors — override these for dark mode */
+  --color-surface: #fafafa;
+  --color-surface-secondary: #f5f5f5;
+  --color-surface-dark: #171717;
+  --color-surface-card: #ffffff;
+
+  /* Text colors */
+  --color-fg: #0a0a0a;
+  --color-fg-muted: #737373;
+  --color-fg-faint: #a3a3a3;
+
+  /* Border */
+  --color-edge: #e5e5e5;
+
+  /* Status semantic colors */
+  --color-status-success: #22c55e;
+  --color-status-success-text: #16a34a;
+  --color-status-success-bg: #dcfce7;
+  --color-status-info: #3b82f6;
+  --color-status-info-text: #1d4ed8;
+  --color-status-info-bg: #dbeafe;
+  --color-status-warning: #f59e0b;
+  --color-status-warning-text: #a16207;
+  --color-status-warning-bg: #fef9c3;
+  --color-status-error: #ef4444;
+  --color-status-error-text: #dc2626;
+  --color-status-error-bg: #fecaca;
 }
 
 /* Light theme base */

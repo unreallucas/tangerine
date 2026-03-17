@@ -42,15 +42,15 @@ export function Dashboard() {
         <ProjectSwitcher variant="mobile" />
 
         {/* Runs header */}
-        <div className="flex flex-col gap-1 border-b border-[#e5e5e5] px-4 py-3">
-          <h1 className="text-[18px] font-semibold text-[#0a0a0a]">Agent Runs</h1>
-          <p className="text-[12px] text-[#737373]">Monitor and manage run history</p>
+        <div className="flex flex-col gap-1 border-b border-edge px-4 py-3">
+          <h1 className="text-[18px] font-semibold text-fg">Agent Runs</h1>
+          <p className="text-[12px] text-fg-muted">Monitor and manage run history</p>
         </div>
 
         {/* Search + New */}
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#e5e5e5] px-2.5">
-            <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-edge px-2.5">
+            <svg className="h-4 w-4 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
             </svg>
             <input
@@ -58,12 +58,12 @@ export function Dashboard() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search runs..."
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-[#0a0a0a] placeholder-[#737373] outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-fg placeholder-fg-muted outline-none"
             />
           </div>
           <Link
             to="/new"
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-[#171717] px-3.5 text-white"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-surface-dark px-3.5 text-white"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -79,7 +79,7 @@ export function Dashboard() {
               <RunCard key={task.id} task={task} />
             ))}
             {tasks.length === 0 && (
-              <div className="py-16 text-center text-[13px] text-[#a3a3a3]">No runs yet</div>
+              <div className="py-16 text-center text-[13px] text-fg-faint">No runs yet</div>
             )}
           </div>
         </div>

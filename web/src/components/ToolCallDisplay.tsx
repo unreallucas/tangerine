@@ -37,7 +37,7 @@ export function ToolCallDisplay({ content }: ToolCallDisplayProps) {
 
   if (!toolData) {
     return (
-      <pre className="overflow-x-auto rounded-md border border-[#e5e5e5] bg-[#f5f5f5] p-2 text-[11px] text-[#737373]">
+      <pre className="overflow-x-auto rounded-md border border-edge bg-surface-secondary p-2 text-[11px] text-fg-muted">
         {content}
       </pre>
     )
@@ -49,15 +49,15 @@ export function ToolCallDisplay({ content }: ToolCallDisplayProps) {
   const isWrite = toolName.toLowerCase().includes("write") || toolName.toLowerCase().includes("edit")
 
   return (
-    <div className="overflow-hidden rounded-md border border-[#e5e5e5] bg-[#f5f5f5]">
+    <div className="overflow-hidden rounded-md border border-edge bg-surface-secondary">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
-        className="flex w-full items-center gap-2 bg-[#f5f5f5] px-3 py-1.5"
+        className="flex w-full items-center gap-2 bg-surface-secondary px-3 py-1.5"
       >
-        <svg className="h-3.5 w-3.5 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="h-3.5 w-3.5 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           {isShell ? (
             <path strokeLinecap="round" strokeLinejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
           ) : isWrite ? (
@@ -66,31 +66,31 @@ export function ToolCallDisplay({ content }: ToolCallDisplayProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
           )}
         </svg>
-        <span className="text-[12px] font-medium text-[#737373]">{label}</span>
+        <span className="text-[12px] font-medium text-fg-muted">{label}</span>
         {toolData.path && (
-          <span className="font-mono text-[12px] text-[#0a0a0a]">{toolData.path}</span>
+          <span className="font-mono text-[12px] text-fg">{toolData.path}</span>
         )}
         {toolData.command && (
-          <span className="font-mono text-[12px] text-[#0a0a0a]">{toolData.command}</span>
+          <span className="font-mono text-[12px] text-fg">{toolData.command}</span>
         )}
         {isWrite && toolData.path && (
-          <span className="ml-auto rounded bg-[#fbbf2430] px-1.5 py-0.5 text-[10px] font-medium text-[#d97706]">modified</span>
+          <span className="ml-auto rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">modified</span>
         )}
       </button>
 
       {/* Expanded content */}
       {expanded && (
-        <div className="border-t border-[#e5e5e5] p-3">
+        <div className="border-t border-edge p-3">
           {toolData.command && (
             <div className="mb-2">
-              <pre className="overflow-x-auto rounded bg-white p-2 font-mono text-[11px] leading-[1.6] text-[#0a0a0a]">
+              <pre className="overflow-x-auto rounded bg-white p-2 font-mono text-[11px] leading-[1.6] text-fg">
                 $ {toolData.command}
               </pre>
             </div>
           )}
 
           {toolData.output && (
-            <pre className="max-h-48 overflow-auto rounded bg-white p-2 font-mono text-[11px] leading-[1.6] text-[#737373]">
+            <pre className="max-h-48 overflow-auto rounded bg-white p-2 font-mono text-[11px] leading-[1.6] text-fg-muted">
               {toolData.output}
             </pre>
           )}
@@ -105,7 +105,7 @@ export function ToolCallDisplay({ content }: ToolCallDisplayProps) {
                       ? "text-green-700"
                       : line.startsWith("-")
                         ? "text-red-600"
-                        : "text-[#737373]"
+                        : "text-fg-muted"
                   }
                 >
                   {line}
@@ -115,7 +115,7 @@ export function ToolCallDisplay({ content }: ToolCallDisplayProps) {
           )}
 
           {toolData.input && !toolData.command && !toolData.diff && (
-            <pre className="overflow-x-auto rounded bg-white p-2 font-mono text-[11px] leading-[1.6] text-[#737373]">
+            <pre className="overflow-x-auto rounded bg-white p-2 font-mono text-[11px] leading-[1.6] text-fg-muted">
               {JSON.stringify(toolData.input, null, 2)}
             </pre>
           )}

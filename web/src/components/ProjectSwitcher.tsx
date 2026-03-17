@@ -41,8 +41,8 @@ export function ProjectSwitcher({ variant = "desktop" }: ProjectSwitcherProps) {
         onClick={() => setOpen(!open)}
         className={
           isMobile
-            ? "flex h-11 w-full items-center justify-between border-b border-[#e5e5e5] px-4"
-            : "flex items-center gap-2 rounded-md bg-[#f5f5f5] px-2.5 py-1.5 transition hover:bg-[#ebebeb]"
+            ? "flex h-11 w-full items-center justify-between border-b border-edge px-4"
+            : "flex items-center gap-2 rounded-md bg-surface-secondary px-2.5 py-1.5 transition hover:bg-neutral-200"
         }
       >
         <div className="flex items-center gap-2">
@@ -53,16 +53,16 @@ export function ProjectSwitcher({ variant = "desktop" }: ProjectSwitcherProps) {
                   {current.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className={`truncate font-medium text-[#0a0a0a] ${isMobile ? "text-[14px]" : "max-w-[180px] text-[13px]"}`}>
+              <span className={`truncate font-medium text-fg ${isMobile ? "text-[14px]" : "max-w-[180px] text-[13px]"}`}>
                 {current.name}
               </span>
             </>
           ) : (
-            <span className="text-[13px] text-[#737373]">No projects</span>
+            <span className="text-[13px] text-fg-muted">No projects</span>
           )}
         </div>
         <svg
-          className={`h-3.5 w-3.5 text-[#737373] transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 text-fg-muted transition-transform ${open ? "rotate-180" : ""}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -71,12 +71,12 @@ export function ProjectSwitcher({ variant = "desktop" }: ProjectSwitcherProps) {
 
       {/* Dropdown */}
       {open && projects.length > 0 && (
-        <div className={`absolute z-50 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white shadow-lg ${
+        <div className={`absolute z-50 overflow-hidden rounded-lg border border-edge bg-white shadow-lg ${
           isMobile ? "left-4 right-4 top-full" : "left-0 top-full mt-1 min-w-[220px]"
         }`}>
           {!isMobile && (
             <div className="px-3 py-2">
-              <span className="text-[11px] font-medium tracking-wider text-[#999]">PROJECTS</span>
+              <span className="text-[11px] font-medium tracking-wider text-fg-muted">PROJECTS</span>
             </div>
           )}
           <div className="max-h-[300px] overflow-y-auto">
@@ -90,7 +90,7 @@ export function ProjectSwitcher({ variant = "desktop" }: ProjectSwitcherProps) {
                     setOpen(false)
                   }}
                   className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition ${
-                    isActive ? "bg-[#f5f5f5]" : isMobile ? "active:bg-[#fafafa]" : "hover:bg-[#fafafa]"
+                    isActive ? "bg-surface-secondary" : isMobile ? "active:bg-surface" : "hover:bg-surface"
                   }`}
                 >
                   <div className={`flex shrink-0 items-center justify-center rounded ${getProjectColor(i)} ${isMobile ? "h-5 w-5" : "h-[22px] w-[22px]"}`}>
@@ -99,11 +99,11 @@ export function ProjectSwitcher({ variant = "desktop" }: ProjectSwitcherProps) {
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-[13px] font-medium text-[#0a0a0a]">{project.name}</span>
-                    <span className="truncate text-[11px] text-[#999]">{project.repo}</span>
+                    <span className="truncate text-[13px] font-medium text-fg">{project.name}</span>
+                    <span className="truncate text-[11px] text-fg-muted">{project.repo}</span>
                   </div>
                   {isActive && (
-                    <svg className="ml-auto h-3.5 w-3.5 shrink-0 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="ml-auto h-3.5 w-3.5 shrink-0 text-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                     </svg>
                   )}

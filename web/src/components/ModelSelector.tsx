@@ -24,14 +24,14 @@ export function ModelSelector() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-md border border-[#e5e5e5] px-2 py-1 transition hover:bg-[#f5f5f5]"
+        className="flex items-center gap-1.5 rounded-md border border-edge px-2 py-1 transition hover:bg-surface-secondary"
       >
-        <svg className="h-3 w-3 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="h-3 w-3 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
         </svg>
-        <span className="text-[11px] font-medium text-[#0a0a0a]">{formatModelName(model)}</span>
+        <span className="text-[11px] font-medium text-fg">{formatModelName(model)}</span>
         <svg
-          className={`h-2.5 w-2.5 text-[#737373] transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-2.5 w-2.5 text-fg-muted transition-transform ${open ? "rotate-180" : ""}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -39,7 +39,7 @@ export function ModelSelector() {
       </button>
 
       {open && models.length > 0 && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-[240px] min-w-[240px] overflow-y-auto rounded-lg border border-[#e5e5e5] bg-white shadow-lg md:bottom-full md:top-auto md:mb-1 md:mt-0 md:max-h-[300px]">
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-[240px] min-w-[240px] overflow-y-auto rounded-lg border border-edge bg-white shadow-lg md:bottom-full md:top-auto md:mb-1 md:mt-0 md:max-h-[300px]">
           {models.map((m) => {
             const isActive = m === model
             return (
@@ -50,12 +50,12 @@ export function ModelSelector() {
                   setOpen(false)
                 }}
                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-[12px] transition ${
-                  isActive ? "bg-[#f5f5f5] font-medium text-[#0a0a0a]" : "text-[#555] hover:bg-[#fafafa]"
+                  isActive ? "bg-surface-secondary font-medium text-fg" : "text-neutral-600 hover:bg-surface"
                 }`}
               >
                 <span>{formatModelName(m)}</span>
                 {isActive && (
-                  <svg className="h-3 w-3 text-[#0a0a0a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <svg className="h-3 w-3 text-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                   </svg>
                 )}

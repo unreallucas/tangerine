@@ -23,7 +23,7 @@ export function StatusBadge({ status, showLabel = true }: StatusBadgeProps) {
         className={`h-2 w-2 rounded-full ${config.color} ${config.pulse ? "animate-status-pulse" : ""}`}
       />
       {showLabel && (
-        <span className="text-xs text-[#737373]">{config.label}</span>
+        <span className="text-xs text-fg-muted">{config.label}</span>
       )}
     </span>
   )

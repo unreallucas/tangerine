@@ -4,7 +4,7 @@ import { getStatusConfig } from "../lib/status"
 import { formatDuration, formatDate } from "../lib/format"
 
 function SourceIcon({ source }: { source: string }) {
-  const cls = "h-[13px] w-[13px] text-[#737373]"
+  const cls = "h-[13px] w-[13px] text-fg-muted"
   if (source === "github") {
     return (
       <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -20,23 +20,22 @@ function SourceIcon({ source }: { source: string }) {
 }
 
 export function RunCard({ task }: { task: Task }) {
-  const { label, color, bg } = getStatusConfig(task.status)
+  const { label, textClass, bgClass } = getStatusConfig(task.status)
 
   return (
     <Link
       to={`/tasks/${task.id}`}
-      className="rounded-[10px] border border-[#e5e5e5] p-3.5 transition active:bg-[#fafafa]"
+      className="rounded-[10px] border border-edge p-3.5 transition active:bg-surface"
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-[14px] font-medium text-[#0a0a0a]">{task.title}</span>
+        <span className="min-w-0 truncate text-[14px] font-medium text-fg">{task.title}</span>
         <span
-          className="shrink-0 rounded-xl px-2.5 py-0.5 text-[11px] font-semibold"
-          style={{ color, backgroundColor: bg }}
+          className={`shrink-0 rounded-xl px-2.5 py-0.5 text-[11px] font-semibold ${textClass} ${bgClass}`}
         >
           {label}
         </span>
       </div>
-      <div className="mt-2.5 flex items-center gap-4 text-[12px] text-[#737373]">
+      <div className="mt-2.5 flex items-center gap-4 text-[12px] text-fg-muted">
         <div className="flex items-center gap-1.5">
           <svg className="h-[13px] w-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />

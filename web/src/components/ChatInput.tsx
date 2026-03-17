@@ -41,7 +41,7 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
   }, [])
 
   return (
-    <div className="border-t border-[#e5e5e5] bg-[#fafafa] px-3 py-2 md:bg-[#fafafa] md:p-3 md:px-4">
+    <div className="border-t border-edge bg-surface px-3 py-2 md:bg-surface md:p-3 md:px-4">
       <div className="flex items-end gap-2">
         <div className="relative min-w-0 flex-1">
           <textarea
@@ -55,7 +55,7 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
             placeholder={disabled ? "Agent is working..." : "Message agent..."}
             disabled={disabled}
             rows={1}
-            className="w-full resize-none rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-[14px] text-[#0a0a0a] placeholder-[#a3a3a3] outline-none transition focus:border-[#a3a3a3] disabled:cursor-not-allowed disabled:opacity-50 md:px-3.5 md:py-2.5 md:text-[13px] md:placeholder-[#737373]"
+            className="w-full resize-none rounded-lg border border-edge bg-surface px-3 py-2 text-[14px] text-fg placeholder-fg-faint outline-none transition focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50 md:px-3.5 md:py-2.5 md:text-[13px] md:placeholder-fg-muted"
           />
           {queueLength > 0 && (
             <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-tangerine text-[10px] font-bold text-white">
@@ -67,11 +67,11 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
         {/* Mobile: circle send/stop button */}
         <div className="md:hidden">
           {isWorking ? (
-            <button onClick={onAbort} aria-label="Stop agent" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ef4444] text-white">
+            <button onClick={onAbort} aria-label="Stop agent" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-status-error text-white">
               <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
             </button>
           ) : (
-            <button onClick={handleSend} disabled={disabled || !text.trim()} aria-label="Send message" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#171717] text-white disabled:opacity-30">
+            <button onClick={handleSend} disabled={disabled || !text.trim()} aria-label="Send message" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-dark text-white disabled:opacity-30">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
               </svg>
@@ -84,7 +84,7 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
           onClick={handleSend}
           disabled={disabled || !text.trim()}
           aria-label="Send message"
-          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#171717] text-[#fafafa] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-30 md:flex"
+          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-dark text-surface transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30 md:flex"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
@@ -98,7 +98,7 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort }:
         {isWorking && (
           <button
             onClick={onAbort}
-            className="flex items-center gap-1 rounded bg-[#e7000b] px-2 py-1"
+            className="flex items-center gap-1 rounded bg-status-error px-2 py-1"
           >
             <svg className="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="1" />

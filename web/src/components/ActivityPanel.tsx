@@ -14,9 +14,9 @@ export function ActivityPanel({ messages, onCollapse }: ActivityPanelProps) {
   const [tab, setTab] = useState<PanelTab>("activities")
 
   return (
-    <div className="flex h-full w-[340px] shrink-0 flex-col border-l border-[#e4e4e7] bg-[#f5f5f5]">
+    <div className="flex h-full w-[340px] shrink-0 flex-col border-l border-edge bg-surface-secondary">
       {/* Panel header */}
-      <div className="flex h-11 items-center justify-between border-b border-[#e5e5e5] bg-[#fafafa] px-4">
+      <div className="flex h-11 items-center justify-between border-b border-edge bg-surface px-4">
         <div className="flex items-center gap-0.5" role="tablist">
           <button
             role="tab"
@@ -24,8 +24,8 @@ export function ActivityPanel({ messages, onCollapse }: ActivityPanelProps) {
             onClick={() => setTab("activities")}
             className={`rounded-sm px-3 py-1.5 text-[13px] font-medium ${
               tab === "activities"
-                ? "bg-[#fafafa] text-[#0a0a0a] shadow-sm"
-                : "text-[#737373]"
+                ? "bg-surface text-fg shadow-sm"
+                : "text-fg-muted"
             }`}
           >
             Activities
@@ -36,15 +36,15 @@ export function ActivityPanel({ messages, onCollapse }: ActivityPanelProps) {
             onClick={() => setTab("diff")}
             className={`rounded-sm px-3 py-1.5 text-[13px] font-medium ${
               tab === "diff"
-                ? "bg-[#fafafa] text-[#0a0a0a] shadow-sm"
-                : "text-[#737373]"
+                ? "bg-surface text-fg shadow-sm"
+                : "text-fg-muted"
             }`}
           >
             Diff
           </button>
         </div>
         {onCollapse && (
-          <button onClick={onCollapse} aria-label="Collapse panel" className="text-[#737373] hover:text-[#0a0a0a]">
+          <button onClick={onCollapse} aria-label="Collapse panel" className="text-fg-muted hover:text-fg">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>
@@ -57,7 +57,7 @@ export function ActivityPanel({ messages, onCollapse }: ActivityPanelProps) {
         {tab === "activities" ? (
           <ActivityList messages={messages} variant="compact" />
         ) : (
-          <div className="py-8 text-center text-[12px] text-[#737373]">
+          <div className="py-8 text-center text-[12px] text-fg-muted">
             No file changes yet
           </div>
         )}

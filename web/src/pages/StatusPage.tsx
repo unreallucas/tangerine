@@ -11,13 +11,13 @@ import { formatRelativeTime } from "../lib/format"
 
 function StatusBadge({ status }: { status: string }) {
   const badges: Record<string, { label: string; color: string; bg: string }> = {
-    ready:        { label: "Ready",        color: "#16a34a", bg: "#dcfce7" },
-    assigned:     { label: "Assigned",     color: "#1d4ed8", bg: "#dbeafe" },
-    provisioning: { label: "Provisioning", color: "#a16207", bg: "#fef9c3" },
-    destroying:   { label: "Destroying",   color: "#737373", bg: "#f5f5f5" },
-    error:        { label: "Error",        color: "#dc2626", bg: "#fecaca" },
+    ready:        { label: "Ready",        color: "var(--color-status-success-text)", bg: "var(--color-status-success-bg)" },
+    assigned:     { label: "Assigned",     color: "var(--color-status-info-text)", bg: "var(--color-status-info-bg)" },
+    provisioning: { label: "Provisioning", color: "var(--color-status-warning-text)", bg: "var(--color-status-warning-bg)" },
+    destroying:   { label: "Destroying",   color: "var(--color-fg-muted)", bg: "var(--color-surface-secondary)" },
+    error:        { label: "Error",        color: "var(--color-status-error-text)", bg: "var(--color-status-error-bg)" },
   }
-  const b = badges[status] ?? { label: status, color: "#737373", bg: "#f5f5f5" }
+  const b = badges[status] ?? { label: status, color: "var(--color-fg-muted)", bg: "var(--color-surface-secondary)" }
   return (
     <span className="rounded-xl px-2 py-0.5 text-[11px] font-medium" style={{ color: b.color, backgroundColor: b.bg }}>
       {b.label}
@@ -33,25 +33,25 @@ function ActiveRunsCard({ tasks }: { tasks: Task[] }) {
   const done = tasks.filter((t) => t.status === "done").length
 
   return (
-    <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-[#e5e5e5] p-3.5 md:gap-3 md:p-4">
+    <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-edge p-3.5 md:gap-3 md:p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-[#737373]">Active Runs</span>
-        <span className="rounded-xl bg-[#dbeafe] px-2.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">
+        <span className="text-[13px] font-medium text-fg-muted">Active Runs</span>
+        <span className="rounded-xl bg-status-info-bg px-2.5 py-0.5 text-[11px] font-semibold text-status-info-text">
           {running} Running
         </span>
       </div>
       <div className="flex gap-4">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[24px] font-bold text-[#0a0a0a] md:text-[28px]">{running}</span>
-          <span className="text-[11px] font-medium text-[#3b82f6] md:text-[12px]">Running</span>
+          <span className="text-[24px] font-bold text-fg md:text-[28px]">{running}</span>
+          <span className="text-[11px] font-medium text-status-info md:text-[12px]">Running</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[24px] font-bold text-[#0a0a0a] md:text-[28px]">{queued}</span>
-          <span className="text-[11px] font-medium text-[#f59e0b] md:text-[12px]">Queued</span>
+          <span className="text-[24px] font-bold text-fg md:text-[28px]">{queued}</span>
+          <span className="text-[11px] font-medium text-status-warning md:text-[12px]">Queued</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[24px] font-bold text-[#0a0a0a] md:text-[28px]">{done}</span>
-          <span className="text-[11px] font-medium text-[#22c55e] md:text-[12px]">Done</span>
+          <span className="text-[24px] font-bold text-fg md:text-[28px]">{done}</span>
+          <span className="text-[11px] font-medium text-status-success md:text-[12px]">Done</span>
         </div>
       </div>
     </div>
@@ -64,32 +64,32 @@ function PoolCard({ pool }: { pool: PoolStats }) {
   const assignedPct = (pool.assigned / total) * 100
 
   return (
-    <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-[#e5e5e5] p-3.5 md:gap-3 md:p-4">
+    <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-edge p-3.5 md:gap-3 md:p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-[#737373]">VM Pool</span>
-        <span className="rounded-xl bg-[#dbeafe] px-2.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">
+        <span className="text-[13px] font-medium text-fg-muted">VM Pool</span>
+        <span className="rounded-xl bg-status-info-bg px-2.5 py-0.5 text-[11px] font-semibold text-status-info-text">
           {pool.total} / {pool.total + pool.ready}
         </span>
       </div>
       <div className="flex gap-4 md:gap-6">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[24px] font-bold text-[#0a0a0a] md:text-[28px]">{pool.ready}</span>
-          <span className="text-[11px] font-medium text-[#22c55e] md:text-[12px]">Ready</span>
+          <span className="text-[24px] font-bold text-fg md:text-[28px]">{pool.ready}</span>
+          <span className="text-[11px] font-medium text-status-success md:text-[12px]">Ready</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[24px] font-bold text-[#0a0a0a] md:text-[28px]">{pool.assigned}</span>
-          <span className="text-[11px] font-medium text-[#3b82f6] md:text-[12px]">Assigned</span>
+          <span className="text-[24px] font-bold text-fg md:text-[28px]">{pool.assigned}</span>
+          <span className="text-[11px] font-medium text-status-info md:text-[12px]">Assigned</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[24px] font-bold text-[#0a0a0a] md:text-[28px]">{pool.provisioning}</span>
-          <span className="text-[11px] font-medium text-[#f59e0b] md:text-[12px]">Provisioning</span>
+          <span className="text-[24px] font-bold text-fg md:text-[28px]">{pool.provisioning}</span>
+          <span className="text-[11px] font-medium text-status-warning md:text-[12px]">Provisioning</span>
         </div>
       </div>
       {/* Progress bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f5]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary">
         <div className="flex h-full">
-          <div className="h-full bg-[#22c55e]" style={{ width: `${readyPct}%` }} />
-          <div className="h-full bg-[#3b82f6]" style={{ width: `${assignedPct}%` }} />
+          <div className="h-full bg-status-success" style={{ width: `${readyPct}%` }} />
+          <div className="h-full bg-status-info" style={{ width: `${assignedPct}%` }} />
         </div>
       </div>
     </div>
@@ -100,14 +100,14 @@ function ImageCard({ image, projectImage }: { image: ImageInfo | null; projectIm
   const built = !!image
 
   return (
-    <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-[#e5e5e5] p-3.5 md:gap-3 md:p-4">
+    <div className="flex flex-1 flex-col gap-2.5 rounded-[10px] border border-edge p-3.5 md:gap-3 md:p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-[#737373]">Golden Image</span>
+        <span className="text-[13px] font-medium text-fg-muted">Golden Image</span>
         <span
           className="rounded-xl px-2.5 py-0.5 text-[11px] font-semibold"
           style={built
-            ? { color: "#16a34a", backgroundColor: "#dcfce7" }
-            : { color: "#a16207", backgroundColor: "#fef9c3" }
+            ? { color: "var(--color-status-success-text)", backgroundColor: "var(--color-status-success-bg)" }
+            : { color: "var(--color-status-warning-text)", backgroundColor: "var(--color-status-warning-bg)" }
           }
         >
           {built ? "Built" : "Not Built"}
@@ -116,17 +116,17 @@ function ImageCard({ image, projectImage }: { image: ImageInfo | null; projectIm
       {built ? (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <svg className="h-3.5 w-3.5 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
             </svg>
-            <span className="text-[13px] font-medium text-[#0a0a0a]">{image.name}</span>
+            <span className="text-[13px] font-medium text-fg">{image.name}</span>
           </div>
-          <span className="text-[12px] text-[#737373]">{image.snapshotId.slice(0, 9)} · {formatRelativeTime(image.createdAt)}</span>
+          <span className="text-[12px] text-fg-muted">{image.snapshotId.slice(0, 9)} · {formatRelativeTime(image.createdAt)}</span>
         </div>
       ) : (
         <div className="flex flex-col gap-1">
-          <span className="text-[13px] text-[#737373]">{projectImage ?? "No image configured"}</span>
-          <span className="text-[12px] text-[#a3a3a3]">Run: tangerine image build</span>
+          <span className="text-[13px] text-fg-muted">{projectImage ?? "No image configured"}</span>
+          <span className="text-[12px] text-fg-faint">Run: tangerine image build</span>
         </div>
       )}
     </div>
@@ -139,34 +139,34 @@ function VmList({ vms }: { vms: VmInfo[] }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-[15px] font-semibold text-[#0a0a0a] md:text-[16px]">Virtual Machines</span>
-        <span className="rounded-xl bg-[#f5f5f5] px-2.5 py-0.5 text-[11px] font-semibold text-[#737373]">
+        <span className="text-[15px] font-semibold text-fg md:text-[16px]">Virtual Machines</span>
+        <span className="rounded-xl bg-surface-secondary px-2.5 py-0.5 text-[11px] font-semibold text-fg-muted">
           {vms.length} VMs
         </span>
       </div>
 
       {vms.length === 0 ? (
-        <div className="py-8 text-center text-[13px] text-[#a3a3a3]">No VMs in pool</div>
+        <div className="py-8 text-center text-[13px] text-fg-faint">No VMs in pool</div>
       ) : (
         <>
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-lg border border-[#e5e5e5] md:block">
-            <div className="flex bg-[#f5f5f5] px-3 py-2.5">
-              <span className="w-[180px] text-[12px] font-medium text-[#737373]">ID</span>
-              <span className="w-[100px] text-[12px] font-medium text-[#737373]">Status</span>
-              <span className="w-[130px] text-[12px] font-medium text-[#737373]">IP</span>
-              <span className="w-[200px] text-[12px] font-medium text-[#737373]">Task</span>
-              <span className="w-[140px] text-[12px] font-medium text-[#737373]">Created</span>
+          <div className="hidden overflow-hidden rounded-lg border border-edge md:block">
+            <div className="flex bg-surface-secondary px-3 py-2.5">
+              <span className="w-[180px] text-[12px] font-medium text-fg-muted">ID</span>
+              <span className="w-[100px] text-[12px] font-medium text-fg-muted">Status</span>
+              <span className="w-[130px] text-[12px] font-medium text-fg-muted">IP</span>
+              <span className="w-[200px] text-[12px] font-medium text-fg-muted">Task</span>
+              <span className="w-[140px] text-[12px] font-medium text-fg-muted">Created</span>
             </div>
             {vms.map((vm) => (
-              <div key={vm.id} className="flex items-center border-t border-[#e5e5e5] px-3 py-2.5">
-                <span className="w-[180px] font-mono text-[12px] text-[#0a0a0a]">{vm.id.slice(0, 12)}</span>
+              <div key={vm.id} className="flex items-center border-t border-edge px-3 py-2.5">
+                <span className="w-[180px] font-mono text-[12px] text-fg">{vm.id.slice(0, 12)}</span>
                 <div className="w-[100px]"><StatusBadge status={vm.status} /></div>
-                <span className="w-[130px] font-mono text-[12px] text-[#0a0a0a]">{vm.ip ?? "—"}</span>
-                <span className={`w-[200px] text-[13px] ${vm.taskId ? "font-medium text-[#0a0a0a]" : "text-[#737373]"}`}>
+                <span className="w-[130px] font-mono text-[12px] text-fg">{vm.ip ?? "—"}</span>
+                <span className={`w-[200px] text-[13px] ${vm.taskId ? "font-medium text-fg" : "text-fg-muted"}`}>
                   {vm.taskId ?? "—"}
                 </span>
-                <span className="w-[140px] text-[13px] text-[#737373]">{formatRelativeTime(vm.createdAt)}</span>
+                <span className="w-[140px] text-[13px] text-fg-muted">{formatRelativeTime(vm.createdAt)}</span>
               </div>
             ))}
           </div>
@@ -174,12 +174,12 @@ function VmList({ vms }: { vms: VmInfo[] }) {
           {/* Mobile: cards */}
           <div className="flex flex-col gap-2.5 md:hidden">
             {vms.map((vm) => (
-              <div key={vm.id} className="flex flex-col gap-1.5 rounded-lg border border-[#e5e5e5] p-3">
+              <div key={vm.id} className="flex flex-col gap-1.5 rounded-lg border border-edge p-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[12px] text-[#0a0a0a]">{vm.id.slice(0, 12)}</span>
+                  <span className="font-mono text-[12px] text-fg">{vm.id.slice(0, 12)}</span>
                   <StatusBadge status={vm.status} />
                 </div>
-                <div className="flex gap-3 text-[11px] text-[#737373]">
+                <div className="flex gap-3 text-[11px] text-fg-muted">
                   <span className="font-mono">{vm.ip ?? "—"}</span>
                   <span>{vm.taskId ? vm.taskId.slice(0, 12) : "No task"}</span>
                   <span>{formatRelativeTime(vm.createdAt)}</span>
@@ -230,13 +230,13 @@ export function StatusPage() {
       {/* Main content */}
       <div className="flex h-full w-full flex-col">
         {/* Mobile header */}
-        <div className="flex h-[52px] items-center gap-3 border-b border-[#e5e5e5] px-4 md:hidden">
-          <button onClick={() => navigate("/")} aria-label="Back" className="text-[#0a0a0a]">
+        <div className="flex h-[52px] items-center gap-3 border-b border-edge px-4 md:hidden">
+          <button onClick={() => navigate("/")} aria-label="Back" className="text-fg">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <span className="text-[18px] font-semibold text-[#0a0a0a]">Status</span>
+          <span className="text-[18px] font-semibold text-fg">Status</span>
         </div>
 
         {/* Scrollable content */}
@@ -244,8 +244,8 @@ export function StatusPage() {
           <div className="flex flex-col gap-4 md:gap-6">
             {/* Title — desktop only */}
             <div className="hidden flex-col gap-1 md:flex">
-              <h1 className="text-[24px] font-semibold text-[#0a0a0a]">System Status</h1>
-              <p className="text-[14px] text-[#737373]">Infrastructure health for the current project</p>
+              <h1 className="text-[24px] font-semibold text-fg">System Status</h1>
+              <p className="text-[14px] text-fg-muted">Infrastructure health for the current project</p>
             </div>
 
             {/* Cards — horizontal on desktop, stacked on mobile */}

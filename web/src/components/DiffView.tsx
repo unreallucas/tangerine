@@ -23,8 +23,8 @@ export function DiffView({ taskId }: DiffViewProps) {
     return () => { cancelled = true; clearInterval(interval) }
   }, [taskId])
 
-  if (loading) return <div className="p-4 text-center text-[13px] text-[#a3a3a3]">Loading diff...</div>
-  if (files.length === 0) return <div className="p-8 text-center text-[13px] text-[#a3a3a3]">No file changes yet</div>
+  if (loading) return <div className="p-4 text-center text-[13px] text-fg-faint">Loading diff...</div>
+  if (files.length === 0) return <div className="p-8 text-center text-[13px] text-fg-faint">No file changes yet</div>
 
   let totalAdded = 0
   let totalRemoved = 0
@@ -37,20 +37,20 @@ export function DiffView({ taskId }: DiffViewProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="flex items-center gap-2 border-b border-[#e5e5e5] bg-[#f5f5f5] px-4 py-2 text-[12px]">
+      <div className="flex items-center gap-2 border-b border-edge bg-surface-secondary px-4 py-2 text-[12px]">
         <span className="text-green-600">+{totalAdded}</span>
         <span className="text-red-500">-{totalRemoved}</span>
-        <span className="text-[#737373]">{files.length} files changed</span>
+        <span className="text-fg-muted">{files.length} files changed</span>
       </div>
       {files.map((file) => (
-        <div key={file.path} className="border-b border-[#e5e5e5]">
-          <div className="bg-[#f9fafb] px-4 py-2 font-mono text-[12px] font-medium text-[#0a0a0a]">{file.path}</div>
+        <div key={file.path} className="border-b border-edge">
+          <div className="bg-surface px-4 py-2 font-mono text-[12px] font-medium text-fg">{file.path}</div>
           <pre className="overflow-x-auto px-4 py-2 font-mono text-[11px] leading-[1.7]">
             {file.diff.split("\n").map((line, i) => {
               const color = line.startsWith("+") ? "text-green-700 bg-green-50"
                 : line.startsWith("-") ? "text-red-600 bg-red-50"
                 : line.startsWith("@@") ? "text-blue-600"
-                : "text-[#737373]"
+                : "text-fg-muted"
               return <span key={i} className={`block px-1 ${color}`}>{line}</span>
             })}
           </pre>
