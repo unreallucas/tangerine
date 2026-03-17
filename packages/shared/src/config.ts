@@ -39,13 +39,21 @@ const defaultModels = [
   "anthropic/claude-haiku-4-20250414",
 ]
 
+export const poolConfigSchema = z.object({
+  maxPoolSize: z.number().default(2),
+  minReady: z.number().default(1),
+  idleTimeoutMs: z.number().default(600_000),
+})
+
 export const tangerineConfigSchema = z.object({
   projects: z.array(projectConfigSchema).min(1),
   model: z.string().default("anthropic/claude-sonnet-4-20250514"),
   models: z.array(z.string()).default(defaultModels),
   integrations: integrationsSchema.optional(),
+  pool: poolConfigSchema.default({}),
 })
 
 export type PreviewConfig = z.infer<typeof previewConfigSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
+export type PoolSettings = z.infer<typeof poolConfigSchema>
 export type TangerineConfig = z.infer<typeof tangerineConfigSchema>
