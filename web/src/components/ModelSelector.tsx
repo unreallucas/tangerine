@@ -39,7 +39,7 @@ export function ModelSelector() {
       </button>
 
       {open && models.length > 0 && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 min-w-[200px] overflow-hidden rounded-lg border border-[#e5e5e5] bg-white shadow-lg">
+        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-[300px] min-w-[240px] overflow-y-auto rounded-lg border border-[#e5e5e5] bg-white shadow-lg">
           {models.map((m) => {
             const isActive = m === model
             return (
