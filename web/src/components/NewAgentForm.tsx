@@ -2,7 +2,6 @@ import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useProject } from "../context/ProjectContext"
 import { ModelSelector } from "./ModelSelector"
-import { formatModelName } from "../lib/format"
 
 interface NewAgentFormProps {
   onSubmit: (data: { projectId: string; title: string; description?: string; branch?: string }) => void
@@ -157,11 +156,8 @@ export function NewAgentForm({ onSubmit }: NewAgentFormProps) {
                 </svg>
                 <span className="text-[13px] text-[#0a0a0a]">{branch}</span>
               </div>
-              <div className="flex h-10 flex-1 items-center gap-2 rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3">
-                <svg className="h-4 w-4 shrink-0 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Z" />
-                </svg>
-                <span className="text-[13px] text-[#0a0a0a]">{model ? formatModelName(model) : "claude-4"}</span>
+              <div className="flex h-10 flex-1 items-center rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3">
+                <ModelSelector />
               </div>
             </div>
             <button
