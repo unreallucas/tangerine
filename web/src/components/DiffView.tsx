@@ -1,105 +1,61 @@
-import { useState, useEffect, useCallback } from "react"
-import { fetchDiff, type DiffData } from "../lib/api"
+import { useState, useEffect } from "react"
+import { fetchDiff, type DiffFile } from "../lib/api"
 
 interface DiffViewProps {
   taskId: string
 }
 
 export function DiffView({ taskId }: DiffViewProps) {
-  const [diff, setDiff] = useState<DiffData | null>(null)
+  const [files, setFiles] = useState<DiffFile[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const loadDiff = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await fetchDiff(taskId)
-      setDiff(data)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load diff")
-    } finally {
-      setLoading(false)
-    }
-  }, [taskId])
 
   useEffect(() => {
-    loadDiff()
-  }, [loadDiff])
+    let cancelled = false
+    async function load() {
+      try {
+        const data = await fetchDiff(taskId)
+        if (!cancelled) setFiles(data.files ?? [])
+      } catch { /* no diff */ }
+      finally { if (!cancelled) setLoading(false) }
+    }
+    load()
+    const interval = setInterval(load, 15000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [taskId])
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-        Loading diff...
-      </div>
-    )
-  }
+  if (loading) return <div className="p-4 text-center text-[13px] text-[#a3a3a3]">Loading diff...</div>
+  if (files.length === 0) return <div className="p-8 text-center text-[13px] text-[#a3a3a3]">No file changes yet</div>
 
-  if (error) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-neutral-500">
-        <span className="text-red-400">{error}</span>
-        <button
-          onClick={loadDiff}
-          className="rounded px-3 py-1 text-xs text-neutral-400 transition hover:bg-neutral-800"
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
-
-  if (!diff || diff.files.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-        No changes yet.
-      </div>
-    )
+  let totalAdded = 0
+  let totalRemoved = 0
+  for (const f of files) {
+    for (const line of f.diff.split("\n")) {
+      if (line.startsWith("+") && !line.startsWith("+++")) totalAdded++
+      if (line.startsWith("-") && !line.startsWith("---")) totalRemoved++
+    }
   }
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-        <span className="text-xs text-neutral-400">
-          {diff.files.length} file{diff.files.length !== 1 ? "s" : ""} changed
-        </span>
-        <button
-          onClick={loadDiff}
-          className="rounded px-2 py-1 text-xs text-neutral-400 transition hover:bg-neutral-800 hover:text-neutral-200"
-        >
-          Refresh
-        </button>
+      <div className="flex items-center gap-2 border-b border-[#e5e5e5] bg-[#f5f5f5] px-4 py-2 text-[12px]">
+        <span className="text-green-600">+{totalAdded}</span>
+        <span className="text-red-500">-{totalRemoved}</span>
+        <span className="text-[#737373]">{files.length} files changed</span>
       </div>
-
-      <div className="divide-y divide-neutral-800">
-        {diff.files.map((file) => (
-          <div key={file.path}>
-            <div className="bg-neutral-900 px-3 py-2 font-mono text-xs text-neutral-300">
-              {file.path}
-            </div>
-            <pre className="overflow-x-auto p-3 font-mono text-xs leading-5">
-              {file.diff.split("\n").map((line, i) => (
-                <div
-                  key={i}
-                  className={
-                    line.startsWith("+++") || line.startsWith("---")
-                      ? "text-neutral-500"
-                      : line.startsWith("+")
-                        ? "bg-green-950/30 text-green-400"
-                        : line.startsWith("-")
-                          ? "bg-red-950/30 text-red-400"
-                          : line.startsWith("@@")
-                            ? "text-blue-400"
-                            : "text-neutral-400"
-                  }
-                >
-                  {line}
-                </div>
-              ))}
-            </pre>
-          </div>
-        ))}
-      </div>
+      {files.map((file) => (
+        <div key={file.path} className="border-b border-[#e5e5e5]">
+          <div className="bg-[#f9fafb] px-4 py-2 font-mono text-[12px] font-medium text-[#0a0a0a]">{file.path}</div>
+          <pre className="overflow-x-auto px-4 py-2 font-mono text-[11px] leading-[1.7]">
+            {file.diff.split("\n").map((line, i) => {
+              const color = line.startsWith("+") ? "text-green-700 bg-green-50"
+                : line.startsWith("-") ? "text-red-600 bg-red-50"
+                : line.startsWith("@@") ? "text-blue-600"
+                : "text-[#737373]"
+              return <span key={i} className={`block px-1 ${color}`}>{line}</span>
+            })}
+          </pre>
+        </div>
+      ))}
     </div>
   )
 }

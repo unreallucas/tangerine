@@ -38,8 +38,8 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full flex-col bg-[#fafafa]">
-      {/* Chat header */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#e5e5e5] px-5">
+      {/* Chat header — desktop only */}
+      <div className="hidden h-14 shrink-0 items-center justify-between border-b border-[#e5e5e5] px-5 md:flex">
         <div className="flex flex-col gap-0.5">
           <span className="text-[15px] font-bold text-[#0a0a0a]">{taskTitle ?? "Agent"}</span>
           {branch && (
@@ -113,7 +113,7 @@ export function ChatPanel({
                 </div>
                 <span className="text-[12px] font-semibold text-[#0a0a0a]">Agent</span>
               </div>
-              <div className="flex items-center gap-1 rounded-lg bg-[#f5f5f5] px-3 py-2 w-fit">
+              <div className="flex w-fit items-center gap-1 rounded-lg bg-[#f5f5f5] px-3 py-2">
                 <div className="h-1.5 w-1.5 rounded-full bg-[#737373] animate-thinking-dot" />
                 <div className="h-1.5 w-1.5 rounded-full bg-[#737373] animate-thinking-dot" />
                 <div className="h-1.5 w-1.5 rounded-full bg-[#737373] animate-thinking-dot" />
