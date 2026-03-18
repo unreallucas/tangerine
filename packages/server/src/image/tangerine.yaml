@@ -54,12 +54,8 @@ provision:
       apt-get install -y -qq \
         git \
         curl \
-        wget \
         jq \
-        build-essential \
         openssh-server \
-        ripgrep \
-        fd-find \
         unzip \
         ca-certificates \
         gnupg \
@@ -84,12 +80,10 @@ provision:
       apt-get update -qq
       apt-get install -y -qq gh
 
-      # OpenCode agent backend
-      npm install -g opencode-ai
-
-      # Harden SSH — key-only auth
+      # Harden SSH — key-only auth, allow user environment for PATH
       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
       sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+      sed -i 's/^#\?PermitUserEnvironment.*/PermitUserEnvironment yes/' /etc/ssh/sshd_config
 
       # Workspace directory owned by agent user
       mkdir -p /workspace
@@ -107,20 +101,22 @@ provision:
       #!/bin/bash
       set -eux -o pipefail
 
-      # Install Bun
-      curl -fsSL https://bun.sh/install | bash
+      # Set npm global prefix to user dir so `npm install -g` works without sudo
+      mkdir -p ~/.npm-global
+      npm config set prefix ~/.npm-global
 
-      # PATH setup for both interactive and non-interactive shells
-      cat >> ~/.profile <<'EOF'
-      export BUN_INSTALL="$HOME/.bun"
-      export PATH="$HOME/.local/bin:$BUN_INSTALL/bin:$PATH"
-      EOF
+      # PATH setup for interactive shells
       cat >> ~/.bashrc <<'EOF'
-      export BUN_INSTALL="$HOME/.bun"
-      export PATH="$HOME/.local/bin:$BUN_INSTALL/bin:$PATH"
+      export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$PATH"
       EOF
 
-      # Pre-configure OpenCode (minimal valid config)
+      # PATH for non-interactive SSH (sourced by sshd via PermitUserEnvironment)
+      mkdir -p ~/.ssh
+      echo "PATH=/home/agent/.npm-global/bin:/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin" >> ~/.ssh/environment
+
+      # Install OpenCode
+      export PATH="$HOME/.npm-global/bin:$PATH"
+      npm install -g opencode-ai
       mkdir -p ~/.config/opencode
       echo '{}' > ~/.config/opencode/opencode.json
 

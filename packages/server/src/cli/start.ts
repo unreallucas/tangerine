@@ -221,6 +221,20 @@ export async function start(): Promise<void> {
 
     startSpan.end({ port, projects: projectNames })
 
+    // Destroy leftover Lima VMs not tracked in DB (orphans from crashes/restarts)
+    try {
+      const limaInstances = await Effect.runPromise(provider.listInstances("tangerine-"))
+      const goldenPrefix = "tangerine-golden-"
+      const ephemeral = limaInstances.filter((i) => !i.id.startsWith(goldenPrefix) && i.id !== "tangerine-base")
+      for (const inst of ephemeral) {
+        log.info("Destroying orphaned VM", { vmId: inst.id })
+        await Effect.runPromise(provider.destroyInstance(inst.id)).catch(() => {})
+      }
+      if (ephemeral.length > 0) log.info("Cleaned up orphaned VMs", { count: ephemeral.length })
+    } catch (err) {
+      log.error("Orphaned VM cleanup failed", { error: String(err) })
+    }
+
     // Pool reconciliation: release stale VMs, reap idle VMs, provision to minReady
     const reconcile = async () => {
       try {

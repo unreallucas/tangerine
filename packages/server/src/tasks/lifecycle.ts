@@ -205,19 +205,24 @@ export function startSession(
       }))
     )
 
-    // Start OpenCode server inside the VM
-    yield* deps.sshExec(
-      vm.ip!,
-      vm.ssh_port!,
-      `cd /workspace/repo && opencode serve --port 4096 --hostname 0.0.0.0 &`,
-    ).pipe(
-      Effect.mapError((e) => new SessionStartError({
-        message: `OpenCode start failed: ${e.message}`,
+    // Start OpenCode server inside the VM (fire-and-forget — SSH hangs if we wait for a backgrounded process)
+    yield* Effect.tryPromise({
+      try: async () => {
+        Bun.spawn(
+          ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(vm.ssh_port!), `agent@${vm.ip!}`,
+           "cd /workspace/repo && opencode serve --port 4096 --hostname 0.0.0.0 > /tmp/opencode.log 2>&1"],
+          { stdout: "ignore", stderr: "ignore", stdin: "ignore" },
+        )
+        // Give it a moment to start
+        await new Promise((r) => setTimeout(r, 1000))
+      },
+      catch: (e) => new SessionStartError({
+        message: `OpenCode start failed: ${e}`,
         taskId: task.id,
         phase: "start-opencode",
-        cause: e,
-      }))
-    )
+        cause: e instanceof Error ? e : new Error(String(e)),
+      }),
+    })
     vmLog.info("OpenCode started")
     yield* activity("opencode.started", "OpenCode server started on VM")
 
