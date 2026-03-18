@@ -26,13 +26,6 @@ ssh:
   loadDotSSHPubKeys: true
   forwardAgent: false
 
-# Root user — these are ephemeral single-purpose VMs, no multi-tenancy.
-# Eliminates PATH fragmentation, npm-global hacks, and sudo dance.
-user:
-  name: "root"
-  home: "/root"
-  shell: "/bin/bash"
-
 # No host mounts — repos are cloned inside the VM
 mounts: []
 
@@ -80,7 +73,17 @@ provision:
       apt-get update -qq
       apt-get install -y -qq gh
 
-      # Harden SSH — key-only auth
+      # Enable root SSH — copy Lima user's authorized keys to root
+      # Lima creates a non-root user but we SSH as root for simplicity
+      mkdir -p /root/.ssh
+      chmod 700 /root/.ssh
+      LIMA_USER=$(getent passwd 1000 | cut -d: -f1)
+      if [ -f "/home/$LIMA_USER/.ssh/authorized_keys" ]; then
+        cp "/home/$LIMA_USER/.ssh/authorized_keys" /root/.ssh/authorized_keys
+      fi
+      chmod 600 /root/.ssh/authorized_keys 2>/dev/null || true
+
+      # Harden SSH — key-only auth, allow root login
       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
       sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
 
@@ -104,4 +107,4 @@ provision:
 message: |
   Tangerine VM ready!
   Workspace: /workspace
-  User: root
+  SSH: root (via authorized_keys from Lima user)
