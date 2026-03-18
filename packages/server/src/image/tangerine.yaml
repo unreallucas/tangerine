@@ -110,4 +110,4 @@ provision:
 message: |
   Tangerine VM ready!
   Workspace: /workspace
-  User: {{.User}} (Lima default, with passwordless sudo)
+  User: Lima default (with passwordless sudo)
