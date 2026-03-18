@@ -4,6 +4,7 @@
 import { Effect } from "effect"
 import { createLogger } from "../logger"
 import { SessionStartError } from "../errors"
+import { VM_USER } from "../config"
 import type { TaskRow, VmRow } from "../db/types"
 import type { SessionTunnel } from "../vm/tunnel"
 
@@ -209,7 +210,7 @@ export function startSession(
     yield* Effect.tryPromise({
       try: async () => {
         Bun.spawn(
-          ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(vm.ssh_port!), `root@${vm.ip!}`,
+          ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(vm.ssh_port!), `${VM_USER}@${vm.ip!}`,
            "cd /workspace/repo && opencode serve --port 4096 --hostname 0.0.0.0 > /tmp/opencode.log 2>&1"],
           { stdout: "ignore", stderr: "ignore", stdin: "ignore" },
         )

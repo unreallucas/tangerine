@@ -26,6 +26,13 @@ ssh:
   loadDotSSHPubKeys: true
   forwardAgent: false
 
+# Dedicated non-root user for agent workloads.
+# Lima injects SSH keys and grants passwordless sudo automatically.
+user:
+  name: "agent"
+  home: "/home/agent"
+  shell: "/bin/bash"
+
 # No host mounts — repos are cloned inside the VM
 mounts: []
 
@@ -73,32 +80,21 @@ provision:
       apt-get update -qq
       apt-get install -y -qq gh
 
-      # Enable root SSH — copy Lima user's authorized keys to root
-      # Lima creates a non-root user but we SSH as root for simplicity
-      mkdir -p /root/.ssh
-      chmod 700 /root/.ssh
-      LIMA_USER=$(getent passwd 1000 | cut -d: -f1)
-      if [ -f "/home/$LIMA_USER/.ssh/authorized_keys" ]; then
-        cp "/home/$LIMA_USER/.ssh/authorized_keys" /root/.ssh/authorized_keys
-      fi
-      chmod 600 /root/.ssh/authorized_keys 2>/dev/null || true
-
-      # Harden SSH — key-only auth, allow root login
+      # SSH — key-only auth
       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-      sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
 
-      # Install OpenCode — lands in /usr/local/bin, always in system PATH
+      # Install OpenCode globally
       npm install -g opencode-ai
 
-      # git: allow operations in any directory (root ownership)
-      git config --global safe.directory '*'
-
-      # Workspace directory
+      # Workspace directory owned by agent user
       mkdir -p /workspace
+      chown agent:agent /workspace
 
-      # Pre-configure OpenCode (minimal valid config)
-      mkdir -p /root/.config/opencode
-      echo '{}' > /root/.config/opencode/opencode.json
+      # git: allow operations in any directory
+      su - agent -c "git config --global safe.directory '*'"
+
+      # Pre-configure OpenCode for agent user
+      su - agent -c "mkdir -p ~/.config/opencode && echo '{}' > ~/.config/opencode/opencode.json"
 
       # Cleanup
       apt-get clean
@@ -107,4 +103,4 @@ provision:
 message: |
   Tangerine VM ready!
   Workspace: /workspace
-  SSH: root (via authorized_keys from Lima user)
+  User: agent (with passwordless sudo)

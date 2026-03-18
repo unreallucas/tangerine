@@ -34,8 +34,11 @@ export function writeRawConfig(config: RawConfig): void {
 /** Path to OpenCode's credential store on the host */
 export const OPENCODE_AUTH_PATH = join(homedir(), ".local", "share", "opencode", "auth.json")
 
+/** SSH user inside the VM */
+export const VM_USER = "agent"
+
 /** Path where auth.json is placed inside the VM */
-export const VM_AUTH_PATH = "/root/.local/share/opencode/auth.json"
+export const VM_AUTH_PATH = `/home/${VM_USER}/.local/share/opencode/auth.json`
 
 export interface AppConfig {
   config: TangerineConfig

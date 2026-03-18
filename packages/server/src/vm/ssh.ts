@@ -4,6 +4,7 @@
 import { Effect } from "effect"
 import { SshError, SshTimeoutError } from "../errors"
 import { createLogger, truncate } from "../logger"
+import { VM_USER } from "../config"
 
 const log = createLogger("ssh")
 
@@ -23,7 +24,7 @@ export function sshExec(
       log.debug("SSH exec", { host, command: truncate(command) })
 
       const proc = Bun.spawn(
-        ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(port), `root@${host}`, command],
+        ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(port), `${VM_USER}@${host}`, command],
         { stdout: "pipe", stderr: "pipe" },
       )
 
@@ -97,7 +98,7 @@ export function sshExecStreaming(
       log.debug("SSH exec streaming", { host, command: truncate(command) })
 
       const proc = Bun.spawn(
-        ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(port), `root@${host}`, command],
+        ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(port), `${VM_USER}@${host}`, command],
         { stdout: "pipe", stderr: "pipe" },
       )
 

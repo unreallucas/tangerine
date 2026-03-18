@@ -18,7 +18,7 @@ import { LimaProvider } from "../vm/providers/lima.ts";
 import { sshExec, sshExecStreaming, waitForSsh } from "../vm/ssh.ts";
 import { getDb } from "../db/index.ts";
 import { createImage, listVms, pruneOldImages, updateVmStatus } from "../db/queries.ts";
-import { TANGERINE_HOME } from "../config.ts";
+import { TANGERINE_HOME, VM_USER } from "../config.ts";
 import type { Logger } from "../logger.ts";
 import type { Database } from "bun:sqlite";
 import type { Provider } from "../vm/providers/types.ts";
@@ -221,7 +221,7 @@ export async function buildImage(imageName: string, log: Logger, opts?: { requir
     // Upload build script to VM via stdin
     const uploadProc = Bun.spawn(
       ["ssh", "-o", "StrictHostKeyChecking=no", "-p", String(instance.sshPort ?? 22),
-       `root@${instance.ip}`, "base64 -d > /tmp/build.sh && chmod +x /tmp/build.sh"],
+       `${VM_USER}@${instance.ip}`, "base64 -d > /tmp/build.sh && chmod +x /tmp/build.sh"],
       {
         stdin: Buffer.from(scriptBase64),
         stdout: "pipe",

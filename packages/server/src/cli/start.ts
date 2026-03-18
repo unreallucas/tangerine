@@ -3,7 +3,7 @@
 
 import { Effect } from "effect"
 import { createLogger } from "../logger"
-import { loadConfig, getProjectConfig, TANGERINE_HOME, VM_AUTH_PATH, readRawConfig, writeRawConfig } from "../config"
+import { loadConfig, getProjectConfig, TANGERINE_HOME, VM_AUTH_PATH, VM_USER, readRawConfig, writeRawConfig } from "../config"
 import { getDb } from "../db/index"
 import { createTask as dbCreateTask, getTask, getVm, listTasks, updateTask, updateVmStatus, insertSessionLog } from "../db/queries"
 import { logActivity } from "../activity"
@@ -74,7 +74,7 @@ export async function start(): Promise<void> {
               // Ensure target directory exists before copying
               await Effect.runPromise(sshExec(host, port, `mkdir -p $(dirname ${VM_AUTH_PATH})`))
               const proc = Bun.spawn(
-                ["scp", "-o", "StrictHostKeyChecking=no", "-P", String(port), authJsonPath, `root@${host}:${VM_AUTH_PATH}`],
+                ["scp", "-o", "StrictHostKeyChecking=no", "-P", String(port), authJsonPath, `${VM_USER}@${host}:${VM_AUTH_PATH}`],
                 { stdout: "pipe", stderr: "pipe" },
               )
               const exitCode = await proc.exited
@@ -86,14 +86,14 @@ export async function start(): Promise<void> {
             catch: (e) => new SshError({ message: `copyAuthJson failed: ${e}`, host, command: "scp" }),
           }),
         injectCredentials: (host, port, credentials) => {
-          // Write env vars to /root/.env via SSH
+          // Write env vars to ~/.env via SSH
           const envLines = Object.entries(credentials)
             .map(([k, v]) => `${k}=${v}`)
             .join("\n")
           return sshExec(
             host,
             port,
-            `printf '%s\\n' '${envLines}' >> /root/.env`,
+            `printf '%s\\n' '${envLines}' >> /home/${VM_USER}/.env`,
           ).pipe(Effect.asVoid)
         },
         createTunnel: (vmIp, sshPort, ports) =>
