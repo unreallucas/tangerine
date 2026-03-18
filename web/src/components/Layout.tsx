@@ -1,9 +1,11 @@
-import { Outlet, useLocation } from "react-router-dom"
+import { Link, Outlet, useLocation } from "react-router-dom"
 import { Topbar } from "./Topbar"
 
 export function Layout() {
   const location = useLocation()
   const isTaskDetail = location.pathname.startsWith("/tasks/")
+  const isRuns = location.pathname === "/" || location.pathname.startsWith("/tasks") || location.pathname === "/new"
+  const isStatus = location.pathname === "/status"
 
   return (
     <div className="flex h-[100dvh] flex-col bg-surface md:h-screen">
@@ -14,7 +16,7 @@ export function Layout() {
 
       {/* Mobile topbar — hidden on desktop and task detail (which has its own header) */}
       {!isTaskDetail && (
-        <div className="flex h-12 shrink-0 items-center border-b border-edge px-4 md:hidden">
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-edge px-4 md:hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-surface-dark">
               <svg className="h-3.5 w-3.5 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -23,6 +25,24 @@ export function Layout() {
             </div>
             <span className="text-[15px] font-bold text-fg">Tangerine</span>
           </div>
+          <nav className="flex items-center gap-0.5">
+            <Link
+              to="/"
+              className={`rounded-md px-3 py-1.5 text-[13px] font-medium ${
+                isRuns ? "bg-surface-secondary text-fg" : "text-fg-muted hover:text-fg"
+              }`}
+            >
+              Runs
+            </Link>
+            <Link
+              to="/status"
+              className={`rounded-md px-3 py-1.5 text-[13px] font-medium ${
+                isStatus ? "bg-surface-secondary text-fg" : "text-fg-muted hover:text-fg"
+              }`}
+            >
+              Status
+            </Link>
+          </nav>
         </div>
       )}
 
