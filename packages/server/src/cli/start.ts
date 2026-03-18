@@ -3,7 +3,7 @@
 
 import { Effect } from "effect"
 import { createLogger } from "../logger"
-import { loadConfig, getProjectConfig, TANGERINE_HOME, VM_AUTH_PATH, VM_USER, readRawConfig, writeRawConfig } from "../config"
+import { loadConfig, getProjectConfig, TANGERINE_HOME, VM_AUTH_RELPATH, VM_USER, readRawConfig, writeRawConfig } from "../config"
 import { getDb } from "../db/index"
 import { createTask as dbCreateTask, getTask, getVm, listTasks, updateTask, updateVmStatus, insertSessionLog } from "../db/queries"
 import { logActivity } from "../activity"
@@ -71,10 +71,10 @@ export async function start(): Promise<void> {
         copyAuthJson: (host, port, authJsonPath) =>
           Effect.tryPromise({
             try: async () => {
-              // Ensure target directory exists before copying
-              await Effect.runPromise(sshExec(host, port, `mkdir -p $(dirname ${VM_AUTH_PATH})`))
+              // Ensure target directory exists before copying (~ expands via SSH)
+              await Effect.runPromise(sshExec(host, port, `mkdir -p ~/$(dirname ${VM_AUTH_RELPATH})`))
               const proc = Bun.spawn(
-                ["scp", "-o", "StrictHostKeyChecking=no", "-P", String(port), authJsonPath, `${VM_USER}@${host}:${VM_AUTH_PATH}`],
+                ["scp", "-o", "StrictHostKeyChecking=no", "-P", String(port), authJsonPath, `${VM_USER}@${host}:~/${VM_AUTH_RELPATH}`],
                 { stdout: "pipe", stderr: "pipe" },
               )
               const exitCode = await proc.exited

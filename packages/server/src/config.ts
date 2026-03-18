@@ -37,11 +37,8 @@ export const OPENCODE_AUTH_PATH = join(homedir(), ".local", "share", "opencode",
 /** SSH user inside the VM — Lima defaults to the host username */
 export const VM_USER = userInfo().username
 
-/** Path where auth.json is placed inside the VM (~ doesn't work with scp, so absolute) */
-export const VM_AUTH_PATH = `/home/${VM_USER}.guest/.local/share/opencode/auth.json`
-
-/** Home directory of the VM user */
-export const VM_HOME = `/home/${VM_USER}.guest`
+/** Relative path for auth.json inside the VM (under user's home) */
+export const VM_AUTH_RELPATH = ".local/share/opencode/auth.json"
 
 export interface AppConfig {
   config: TangerineConfig
