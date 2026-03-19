@@ -17,43 +17,55 @@ export function createClaudeCodeProvider(): AgentFactory {
 
       return Effect.tryPromise({
         try: async () => {
-          const isResume = !!ctx.resumeSessionId
-          const sessionId = crypto.randomUUID()
+          const spawnClaude = (sessionFlag: string) => {
+            const claudeArgs = [
+              `test -f ~/.env && set -a && . ~/.env && set +a;`,
+              `cd ${ctx.workdir} &&`,
+              `claude`,
+              `--output-format stream-json`,
+              `--input-format stream-json`,
+              `--verbose`,
+              sessionFlag,
+              `--dangerously-skip-permissions`,
+            ]
+            return Bun.spawn(
+              [
+                "ssh",
+                "-T",
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "LogLevel=ERROR",
+                "-p", String(ctx.sshPort),
+                `${VM_USER}@${ctx.vmIp}`,
+                claudeArgs.join(" "),
+              ],
+              { stdin: "pipe", stdout: "pipe", stderr: "pipe" },
+            )
+          }
 
-          // Always start a fresh session — --resume is unreliable when the
-          // previous process was killed mid-session. The worktree and code
-          // changes survive; conversation history is in our DB for display.
-          const claudeArgs = [
-            `test -f ~/.env && set -a && . ~/.env && set +a;`,
-            `cd ${ctx.workdir} &&`,
-            `claude`,
-            `--output-format stream-json`,
-            `--input-format stream-json`,
-            `--verbose`,
-            `--session-id ${sessionId}`,
-            `--dangerously-skip-permissions`,
-          ]
+          // Start with --resume if we have a previous session, else fresh
+          let sessionId = ctx.resumeSessionId ?? crypto.randomUUID()
+          const sessionFlag = ctx.resumeSessionId
+            ? `--resume ${ctx.resumeSessionId}`
+            : `--session-id ${sessionId}`
 
-          // Spawn SSH with interactive stdin/stdout piped to `claude`
-          const proc = Bun.spawn(
-            [
-              "ssh",
-              "-T",
-              "-o", "StrictHostKeyChecking=no",
-              "-o", "UserKnownHostsFile=/dev/null",
-              "-o", "LogLevel=ERROR",
-              "-p", String(ctx.sshPort),
-              `${VM_USER}@${ctx.vmIp}`,
-              claudeArgs.join(" "),
-            ],
-            {
-              stdin: "pipe",
-              stdout: "pipe",
-              stderr: "pipe",
-            },
-          )
+          let proc = spawnClaude(sessionFlag)
+          taskLog.info("Claude Code spawned", { sessionId, isResume: !!ctx.resumeSessionId })
 
-          taskLog.info("Claude Code spawned", { sessionId, isResume })
+          // If resuming, verify the process stays alive. If it exits within
+          // 3s it means the session file doesn't exist — fall back to fresh.
+          if (ctx.resumeSessionId) {
+            const exitedEarly = await Promise.race([
+              proc.exited.then(() => true),
+              new Promise<false>((resolve) => setTimeout(() => resolve(false), 3000)),
+            ])
+            if (exitedEarly) {
+              taskLog.info("Resume failed (process exited), starting fresh session")
+              sessionId = crypto.randomUUID()
+              proc = spawnClaude(`--session-id ${sessionId}`)
+              taskLog.info("Claude Code respawned fresh", { sessionId })
+            }
+          }
 
           const subscribers = new Set<(e: AgentEvent) => void>()
           let shutdownCalled = false
