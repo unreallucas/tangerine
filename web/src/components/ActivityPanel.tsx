@@ -1,17 +1,33 @@
-import { useState } from "react"
-import type { ChatMessage } from "../hooks/useSession"
+import { useState, useEffect } from "react"
+import type { ActivityEntry } from "@tangerine/shared"
+import { fetchActivities } from "../lib/api"
 import { ActivityList } from "./ActivityList"
 
 type PanelTab = "activities" | "diff"
 
 interface ActivityPanelProps {
-  messages: ChatMessage[]
-  taskId?: string
+  taskId: string
   onCollapse?: () => void
 }
 
-export function ActivityPanel({ messages, onCollapse }: ActivityPanelProps) {
+export function ActivityPanel({ taskId, onCollapse }: ActivityPanelProps) {
   const [tab, setTab] = useState<PanelTab>("activities")
+  const [activities, setActivities] = useState<ActivityEntry[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const data = await fetchActivities(taskId)
+        if (!cancelled) setActivities(data)
+      } catch {
+        // Activities may not be available
+      }
+    }
+    load()
+    const interval = setInterval(load, 5000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [taskId])
 
   return (
     <div className="flex h-full w-[340px] shrink-0 flex-col border-l border-edge bg-surface-secondary">
@@ -55,7 +71,7 @@ export function ActivityPanel({ messages, onCollapse }: ActivityPanelProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-3">
         {tab === "activities" ? (
-          <ActivityList messages={messages} variant="compact" />
+          <ActivityList activities={activities} variant="compact" />
         ) : (
           <div className="py-8 text-center text-[12px] text-fg-muted">
             No file changes yet

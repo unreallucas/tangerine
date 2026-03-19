@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import type { Task } from "@tangerine/shared"
-import { fetchTask } from "../lib/api"
+import type { Task, ActivityEntry } from "@tangerine/shared"
+import { fetchTask, fetchActivities } from "../lib/api"
 import { getStatusConfig } from "../lib/status"
 import { useSession } from "../hooks/useSession"
 import { useTaskSearch } from "../hooks/useTaskSearch"
@@ -24,6 +24,7 @@ export function TaskDetail() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat")
 
   const session = useSession(id ?? "")
+  const [activities, setActivities] = useState<ActivityEntry[]>([])
   const { query, setQuery, tasks } = useTaskSearch(current?.name)
 
   useEffect(() => {
@@ -41,6 +42,20 @@ export function TaskDetail() {
     }
     load()
     const interval = setInterval(load, 10000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    async function load() {
+      try {
+        const data = await fetchActivities(id!)
+        if (!cancelled) setActivities(data)
+      } catch { /* ignore */ }
+    }
+    load()
+    const interval = setInterval(load, 5000)
     return () => { cancelled = true; clearInterval(interval) }
   }, [id])
 
@@ -98,7 +113,7 @@ export function TaskDetail() {
           />
         </div>
         {showActivity && (
-          <ActivityPanel messages={session.messages} onCollapse={() => setShowActivity(false)} />
+          <ActivityPanel taskId={id!} onCollapse={() => setShowActivity(false)} />
         )}
       </div>
 
@@ -145,7 +160,7 @@ export function TaskDetail() {
             />
           )}
           {mobileTab === "diff" && <DiffView taskId={id!} />}
-          {mobileTab === "activities" && <ActivityList messages={session.messages} variant="timeline" />}
+          {mobileTab === "activities" && <ActivityList activities={activities} variant="timeline" />}
         </div>
       </div>
     </div>

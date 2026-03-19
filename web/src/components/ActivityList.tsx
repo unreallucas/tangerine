@@ -1,16 +1,13 @@
-import type { ChatMessage } from "../hooks/useSession"
+import type { ActivityEntry } from "@tangerine/shared"
 import { getEventStyle } from "../lib/activity"
 import { formatTimestamp, formatRelativeTime } from "../lib/format"
 
 interface ActivityListProps {
-  messages: ChatMessage[]
-  /** "compact" = desktop sidebar (timestamp + truncated line). "timeline" = mobile (grouped by day with dots). */
+  activities: ActivityEntry[]
   variant?: "compact" | "timeline"
 }
 
-export function ActivityList({ messages, variant = "compact" }: ActivityListProps) {
-  const activities = messages.filter((m) => m.role === "assistant" || m.role === "tool" || m.role === "system")
-
+export function ActivityList({ activities, variant = "compact" }: ActivityListProps) {
   if (activities.length === 0) {
     return <div className="py-8 text-center text-[12px] text-fg-muted">No activity yet</div>
   }
@@ -25,12 +22,12 @@ export function ActivityList({ messages, variant = "compact" }: ActivityListProp
           </div>
         </div>
         <div className="flex flex-col">
-          {activities.map((msg) => {
-            const style = getEventStyle(msg.content)
+          {activities.map((entry) => {
+            const style = getEventStyle(entry.content)
             return (
-              <div key={msg.id} className="flex gap-3 py-2">
+              <div key={entry.id} className="flex gap-3 py-2">
                 <span className="w-11 shrink-0 text-[11px] text-fg-muted">
-                  {formatTimestamp(msg.timestamp)}
+                  {formatTimestamp(entry.timestamp)}
                 </span>
                 <div
                   className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-lg ${style.bgClass}`}
@@ -38,7 +35,7 @@ export function ActivityList({ messages, variant = "compact" }: ActivityListProp
                   <div className={`h-1.5 w-1.5 rounded-full ${style.dotClass}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] text-fg">{msg.content.slice(0, 80)}</p>
+                  <p className="truncate text-[12px] text-fg">{entry.content.slice(0, 80)}</p>
                 </div>
               </div>
             )
@@ -49,11 +46,11 @@ export function ActivityList({ messages, variant = "compact" }: ActivityListProp
   }
 
   // Timeline variant — group by day
-  const groups: { label: string; items: ChatMessage[] }[] = []
+  const groups: { label: string; items: ActivityEntry[] }[] = []
   let currentLabel = ""
 
-  for (const msg of activities) {
-    const d = new Date(msg.timestamp)
+  for (const entry of activities) {
+    const d = new Date(entry.timestamp)
     const today = new Date()
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
@@ -66,7 +63,7 @@ export function ActivityList({ messages, variant = "compact" }: ActivityListProp
       groups.push({ label, items: [] })
       currentLabel = label
     }
-    groups[groups.length - 1]!.items.push(msg)
+    groups[groups.length - 1]!.items.push(entry)
   }
 
   return (
@@ -75,10 +72,10 @@ export function ActivityList({ messages, variant = "compact" }: ActivityListProp
         <div key={group.label} className="mb-6">
           <div className="mb-3 text-[12px] font-semibold text-fg-faint">{group.label}</div>
           <div className="flex flex-col gap-4">
-            {group.items.map((msg) => {
-              const style = getEventStyle(msg.content)
+            {group.items.map((entry) => {
+              const style = getEventStyle(entry.content)
               return (
-                <div key={msg.id} className="flex gap-3">
+                <div key={entry.id} className="flex gap-3">
                   <div className="flex flex-col items-center pt-1">
                     <div className={`flex h-6 w-6 items-center justify-center rounded-full ${style.bgClass}`}>
                       <div className={`h-2 w-2 rounded-full ${style.dotClass}`} />
@@ -87,9 +84,9 @@ export function ActivityList({ messages, variant = "compact" }: ActivityListProp
                   </div>
                   <div className="min-w-0 flex-1 pb-2">
                     <p className="text-[13px] font-medium leading-tight text-fg">
-                      {msg.content.slice(0, 100)}{msg.content.length > 100 && "..."}
+                      {entry.content.slice(0, 100)}{entry.content.length > 100 && "..."}
                     </p>
-                    <span className="mt-1 text-[11px] text-fg-faint">{formatRelativeTime(msg.timestamp)}</span>
+                    <span className="mt-1 text-[11px] text-fg-faint">{formatRelativeTime(entry.timestamp)}</span>
                   </div>
                 </div>
               )

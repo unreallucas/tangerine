@@ -1,4 +1,4 @@
-import type { Task, PoolStats, ProjectConfig, SystemLogEntry } from "@tangerine/shared"
+import type { Task, PoolStats, ProjectConfig, SystemLogEntry, ActivityEntry } from "@tangerine/shared"
 
 const BASE = ""
 
@@ -85,6 +85,10 @@ export async function sendPrompt(id: string, text: string): Promise<void> {
 
 export async function abortTask(id: string): Promise<void> {
   return request<void>(`/api/tasks/${id}/abort`, { method: "POST" })
+}
+
+export async function fetchActivities(id: string): Promise<ActivityEntry[]> {
+  return request<ActivityEntry[]>(`/api/tasks/${id}/activities`)
 }
 
 export async function fetchDiff(id: string): Promise<DiffData> {
