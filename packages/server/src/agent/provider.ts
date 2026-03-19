@@ -29,6 +29,8 @@ export interface AgentStartContext {
   workdir: string
   title: string
   previewPort: number
+  /** If set, resume an existing session instead of creating a new one */
+  resumeSessionId?: string
 }
 
 /** Factory that creates agent sessions — one implementation per provider */

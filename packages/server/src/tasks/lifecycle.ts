@@ -256,3 +256,116 @@ export function startSession(
     }
   })
 }
+
+/**
+ * Reconnect to an orphaned running task after server restart.
+ * Skips worktree creation and setup — just re-starts the agent process.
+ * For Claude Code, uses --resume to continue the existing session.
+ */
+export function reconnectSession(
+  task: TaskRow,
+  config: ProjectConfig,
+  creds: CredentialConfig,
+  deps: LifecycleDeps,
+): Effect.Effect<SessionInfo, SessionStartError> {
+  const activity = (event: string, content: string, metadata?: Record<string, unknown>) =>
+    deps.logActivity(task.id, "lifecycle", event, content, metadata).pipe(Effect.catchAll(() => Effect.void))
+
+  return Effect.gen(function* () {
+    const taskLog = log.child({ taskId: task.id })
+    taskLog.info("Reconnecting orphaned task")
+    yield* activity("session.reconnecting", "Reconnecting after server restart")
+
+    const worktreePath = task.worktree_path ?? `/workspace/worktrees/${task.id.slice(0, 8)}`
+    const branch = task.branch ?? `tangerine/${task.id.slice(0, 8)}`
+
+    // 1. Get existing VM (must already exist for a running task)
+    const vm = yield* deps.getOrCreateVm(task.project_id, config.image).pipe(
+      Effect.mapError((e) => new SessionStartError({
+        message: `VM not available for reconnect: ${e.message}`,
+        taskId: task.id,
+        phase: "vm-acquire",
+        cause: e,
+      }))
+    )
+
+    // 2. Wait for SSH
+    yield* deps.waitForSsh(vm.ip!, vm.ssh_port!).pipe(
+      Effect.mapError((e) => new SessionStartError({
+        message: e.message,
+        taskId: task.id,
+        phase: "ssh-wait",
+        cause: e,
+      }))
+    )
+
+    // 3. Re-inject credentials (idempotent)
+    const envCreds: Record<string, string> = {}
+    if (creds.githubToken) {
+      envCreds.GITHUB_TOKEN = creds.githubToken
+      envCreds.GH_TOKEN = creds.githubToken
+    }
+    if (creds.anthropicApiKey) envCreds.ANTHROPIC_API_KEY = creds.anthropicApiKey
+    if (creds.claudeOauthToken) envCreds.CLAUDE_CODE_OAUTH_TOKEN = creds.claudeOauthToken
+    if (Object.keys(envCreds).length > 0) {
+      yield* deps.injectCredentials(vm.ip!, vm.ssh_port!, envCreds).pipe(
+        Effect.mapError((e) => new SessionStartError({
+          message: `Credential injection failed: ${e.message}`,
+          taskId: task.id,
+          phase: "inject-creds",
+          cause: e,
+        }))
+      )
+    }
+
+    // 4. Kill any lingering agent process in the worktree
+    yield* deps.sshExec(vm.ip!, vm.ssh_port!,
+      `pkill -f "claude.*${worktreePath}" 2>/dev/null; pkill -f "opencode.*${worktreePath}" 2>/dev/null; true`
+    ).pipe(Effect.catchAll(() => Effect.void))
+
+    // 5. Start agent — resume session if we have a session ID
+    yield* activity("agent.reconnecting", "Restarting agent process")
+    const agentHandle = yield* deps.agentFactory.start({
+      taskId: task.id,
+      vmIp: vm.ip!,
+      sshPort: vm.ssh_port!,
+      workdir: worktreePath,
+      title: task.title,
+      previewPort: config.preview.port,
+      resumeSessionId: task.agent_session_id ?? undefined,
+    })
+    taskLog.info("Agent reconnected")
+
+    const meta = getHandleMeta(agentHandle)
+    const agentPort = meta?.agentPort ?? null
+    const previewPort = meta?.previewPort ?? config.preview.port
+    const agentSessionId = meta?.sessionId ?? task.agent_session_id
+
+    yield* deps.updateTask(task.id, {
+      agent_session_id: agentSessionId,
+      agent_port: agentPort,
+      preview_port: previewPort,
+      status: "running",
+    }).pipe(
+      Effect.mapError((e) => new SessionStartError({
+        message: e.message,
+        taskId: task.id,
+        phase: "db-update",
+        cause: e,
+      }))
+    )
+
+    yield* activity("session.reconnected", "Session reconnected", {
+      vmId: vm.id, agentSessionId, agentPort, previewPort,
+    })
+
+    return {
+      vmId: vm.id,
+      agentHandle,
+      agentPort,
+      previewPort,
+      branch,
+      worktreePath,
+    }
+  })
+}

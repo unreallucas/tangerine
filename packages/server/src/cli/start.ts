@@ -214,6 +214,7 @@ export async function start(): Promise<void> {
           },
           catch: (e) => new AgentError({ message: `Abort failed: ${e}`, taskId: "unknown" }),
         }),
+      getAgentFactory,
     }
 
     // Override agentFactory per-task based on provider field

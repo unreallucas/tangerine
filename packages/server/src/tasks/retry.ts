@@ -6,7 +6,7 @@ import { createLogger } from "../logger"
 
 import type { TaskRow } from "../db/types"
 import type { CredentialConfig, LifecycleDeps, ProjectConfig, SessionInfo } from "./lifecycle"
-import { startSession } from "./lifecycle"
+import { startSession, reconnectSession } from "./lifecycle"
 
 const log = createLogger("retry")
 
@@ -52,6 +52,46 @@ export function startSessionWithRetry(
         yield* retryDeps.updateTask(task.id, { status: "failed" }).pipe(Effect.ignoreLogged)
         yield* retryDeps.updateTask(task.id, {
           error: `Failed after ${MAX_RETRY_ATTEMPTS} attempts: ${error.message}`,
+        }).pipe(Effect.ignoreLogged)
+      })
+    )
+  )
+}
+
+/** Reconnect an orphaned running task — skips worktree/setup, just restarts agent */
+export function reconnectSessionWithRetry(
+  task: TaskRow,
+  config: ProjectConfig,
+  creds: CredentialConfig,
+  lifecycleDeps: LifecycleDeps,
+  retryDeps: RetryDeps,
+): Effect.Effect<void, never> {
+  return reconnectSession(task, config, creds, lifecycleDeps).pipe(
+    Effect.tap((session) =>
+      Effect.sync(() => {
+        retryDeps.onSessionReady?.(task.id, session)
+      })
+    ),
+    Effect.asVoid,
+    Effect.retry(
+      Schedule.exponential("1 second").pipe(
+        Schedule.compose(Schedule.recurs(MAX_RETRY_ATTEMPTS - 1))
+      )
+    ),
+    Effect.tapError((error) =>
+      Effect.sync(() => {
+        log.error("Reconnect retries exhausted", {
+          taskId: task.id,
+          attempts: MAX_RETRY_ATTEMPTS,
+          lastError: error.message,
+        })
+      })
+    ),
+    Effect.catchAll((error) =>
+      Effect.gen(function* () {
+        yield* retryDeps.updateTask(task.id, { status: "failed" }).pipe(Effect.ignoreLogged)
+        yield* retryDeps.updateTask(task.id, {
+          error: `Reconnect failed after ${MAX_RETRY_ATTEMPTS} attempts: ${error.message}`,
         }).pipe(Effect.ignoreLogged)
       })
     )

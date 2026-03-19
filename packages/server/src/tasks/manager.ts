@@ -14,7 +14,7 @@ import type { CredentialConfig, LifecycleDeps, ProjectConfig } from "./lifecycle
 import type { CleanupDeps } from "./cleanup"
 import type { RetryDeps } from "./retry"
 import { cleanupSession } from "./cleanup"
-import { startSessionWithRetry } from "./retry"
+import { startSessionWithRetry, reconnectSessionWithRetry } from "./retry"
 import { emitStatusChange } from "./events"
 
 const log = createLogger("tasks")
@@ -33,6 +33,8 @@ export interface TaskManagerDeps {
   getProjectConfig(projectId: string): ProjectConfig | undefined
   credentialConfig: CredentialConfig
   abortAgent(agentPort: number, sessionId: string): Effect.Effect<void, AgentError>
+  /** Select the correct agent factory for a given provider type */
+  getAgentFactory?: (provider: string) => import("../agent/provider").AgentFactory
 }
 
 // Prompt queue per task (sent sequentially so agent completes one before starting next)
@@ -190,8 +192,9 @@ export function dequeuePrompt(taskId: string): string | undefined {
 
 /**
  * Resume tasks orphaned by a server restart.
- * Tasks in "created" or "provisioning" status have no running fiber,
- * so we re-dispatch them via startSessionWithRetry.
+ * - "created"/"provisioning" tasks: full restart via startSessionWithRetry
+ * - "running" tasks: lightweight reconnect via reconnectSessionWithRetry
+ *   (skips worktree/setup, just restarts agent with --resume)
  */
 export function resumeOrphanedTasks(
   deps: TaskManagerDeps,
@@ -199,11 +202,17 @@ export function resumeOrphanedTasks(
   return Effect.gen(function* () {
     const created = yield* deps.listTasks({ status: "created" })
     const provisioning = yield* deps.listTasks({ status: "provisioning" })
-    const orphaned = [...created, ...provisioning]
+    const running = yield* deps.listTasks({ status: "running" })
 
-    if (orphaned.length === 0) return 0
+    // "created"/"provisioning" tasks need full restart
+    const needsFullRestart = [...created, ...provisioning]
+    // "running" tasks have worktree + session but lost their agent process
+    const needsReconnect = running
 
-    for (const task of orphaned) {
+    const total = needsFullRestart.length + needsReconnect.length
+    if (total === 0) return 0
+
+    for (const task of needsFullRestart) {
       const projectConfig = deps.getProjectConfig(task.project_id)
       if (!projectConfig) {
         log.warn("Orphaned task has unknown project, marking failed", { taskId: task.id, projectId: task.project_id })
@@ -212,6 +221,11 @@ export function resumeOrphanedTasks(
       }
 
       log.info("Resuming orphaned task", { taskId: task.id, status: task.status, title: task.title })
+
+      // Set the correct agent factory for this task's provider
+      if (deps.getAgentFactory) {
+        deps.lifecycleDeps.agentFactory = deps.getAgentFactory(task.provider)
+      }
 
       // Reset task state (VM persists per-project, no need to release)
       yield* deps.updateTask(task.id, {
@@ -222,13 +236,32 @@ export function resumeOrphanedTasks(
         worktree_path: null,
       }).pipe(Effect.ignoreLogged)
 
-      // Use Effect.forkDaemon so the fiber outlives this Effect scope
       yield* Effect.forkDaemon(
         startSessionWithRetry(task, projectConfig, deps.credentialConfig, deps.lifecycleDeps, deps.retryDeps)
       )
     }
 
-    return orphaned.length
+    for (const task of needsReconnect) {
+      const projectConfig = deps.getProjectConfig(task.project_id)
+      if (!projectConfig) {
+        log.warn("Running task has unknown project, marking failed", { taskId: task.id })
+        yield* deps.updateTask(task.id, { status: "failed", error: "Unknown project on reconnect" }).pipe(Effect.ignoreLogged)
+        continue
+      }
+
+      log.info("Reconnecting running task", { taskId: task.id, provider: task.provider, title: task.title })
+
+      // Set the correct agent factory for this task's provider
+      if (deps.getAgentFactory) {
+        deps.lifecycleDeps.agentFactory = deps.getAgentFactory(task.provider)
+      }
+
+      yield* Effect.forkDaemon(
+        reconnectSessionWithRetry(task, projectConfig, deps.credentialConfig, deps.lifecycleDeps, deps.retryDeps)
+      )
+    }
+
+    return total
   })
 }
 

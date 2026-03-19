@@ -17,7 +17,22 @@ export function createClaudeCodeProvider(): AgentFactory {
 
       return Effect.tryPromise({
         try: async () => {
+          const isResume = !!ctx.resumeSessionId
           const sessionId = crypto.randomUUID()
+
+          // Always start a fresh session — --resume is unreliable when the
+          // previous process was killed mid-session. The worktree and code
+          // changes survive; conversation history is in our DB for display.
+          const claudeArgs = [
+            `test -f ~/.env && set -a && . ~/.env && set +a;`,
+            `cd ${ctx.workdir} &&`,
+            `claude`,
+            `--output-format stream-json`,
+            `--input-format stream-json`,
+            `--verbose`,
+            `--session-id ${sessionId}`,
+            `--dangerously-skip-permissions`,
+          ]
 
           // Spawn SSH with interactive stdin/stdout piped to `claude`
           const proc = Bun.spawn(
@@ -29,17 +44,7 @@ export function createClaudeCodeProvider(): AgentFactory {
               "-o", "LogLevel=ERROR",
               "-p", String(ctx.sshPort),
               `${VM_USER}@${ctx.vmIp}`,
-              [
-                // Source env vars (API keys, OAuth tokens) injected by lifecycle
-                `test -f ~/.env && set -a && . ~/.env && set +a;`,
-                `cd ${ctx.workdir} &&`,
-                `claude`,
-                `--output-format stream-json`,
-                `--input-format stream-json`,
-                `--verbose`,
-                `--session-id ${sessionId}`,
-                `--dangerously-skip-permissions`,
-              ].join(" "),
+              claudeArgs.join(" "),
             ],
             {
               stdin: "pipe",
@@ -48,10 +53,12 @@ export function createClaudeCodeProvider(): AgentFactory {
             },
           )
 
-          taskLog.info("Claude Code spawned", { sessionId })
+          taskLog.info("Claude Code spawned", { sessionId, isResume })
 
           const subscribers = new Set<(e: AgentEvent) => void>()
           let shutdownCalled = false
+          // Capture the real session ID from Claude's init event (may differ from what we passed)
+          let resolvedSessionId = sessionId
 
           // Parse NDJSON from stdout
           const parser = parseNdjsonStream(
@@ -59,6 +66,13 @@ export function createClaudeCodeProvider(): AgentFactory {
             {
               onLine: (data) => {
                 const raw = data as Record<string, unknown>
+
+                // Capture session_id from system init event
+                if (raw.type === "system" && raw.subtype === "init" && typeof raw.session_id === "string") {
+                  resolvedSessionId = raw.session_id
+                  taskLog.info("Claude Code session resolved", { sessionId: resolvedSessionId })
+                }
+
                 const event = mapClaudeCodeEvent(raw)
                 if (event) {
                   for (const cb of subscribers) cb(event)
@@ -157,6 +171,15 @@ export function createClaudeCodeProvider(): AgentFactory {
               })
             },
           }
+
+          // Attach metadata — uses getter so resolvedSessionId updates after init event
+          Object.defineProperty(handle, "__meta", {
+            get: () => ({
+              sessionId: resolvedSessionId,
+              agentPort: null as number | null,
+              previewPort: ctx.previewPort,
+            }),
+          })
 
           return handle
         },
