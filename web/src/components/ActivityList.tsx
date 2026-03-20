@@ -35,7 +35,7 @@ export function ActivityList({ activities, variant = "compact" }: ActivityListPr
                   <div className={`h-1.5 w-1.5 rounded-full ${style.dotClass}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] text-fg">{entry.content.slice(0, 80)}</p>
+                  <p className="text-[12px] leading-relaxed text-fg">{entry.content}</p>
                 </div>
               </div>
             )
@@ -84,7 +84,7 @@ export function ActivityList({ activities, variant = "compact" }: ActivityListPr
                   </div>
                   <div className="min-w-0 flex-1 pb-2">
                     <p className="text-[13px] font-medium leading-tight text-fg">
-                      {entry.content.slice(0, 100)}{entry.content.length > 100 && "..."}
+                      {entry.content}
                     </p>
                     <span className="mt-1 text-[11px] text-fg-faint">{formatRelativeTime(entry.timestamp)}</span>
                   </div>
