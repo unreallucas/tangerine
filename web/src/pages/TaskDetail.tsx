@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import type { Task, ActivityEntry } from "@tangerine/shared"
 import { fetchTask, fetchActivities } from "../lib/api"
@@ -6,26 +6,30 @@ import { getStatusConfig } from "../lib/status"
 import { useSession } from "../hooks/useSession"
 import { useTaskSearch } from "../hooks/useTaskSearch"
 import { useProject } from "../context/ProjectContext"
+import { useDiffFiles } from "../hooks/useDiffFiles"
 import { TasksSidebar } from "../components/TasksSidebar"
 import { ChatPanel } from "../components/ChatPanel"
-import { ActivityPanel } from "../components/ActivityPanel"
+import { ActivityPanel, type PanelTab } from "../components/ActivityPanel"
 import { DiffView } from "../components/DiffView"
 import { ActivityList } from "../components/ActivityList"
+import type { DiffComment } from "../components/ChangesPanel"
 
-type MobileTab = "chat" | "diff" | "activities"
+type MobileTab = "chat" | "changes" | "activities"
 
 export function TaskDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { current } = useProject()
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
   const [showActivity, setShowActivity] = useState(true)
+  const [panelTab, setPanelTab] = useState<PanelTab>("activities")
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat")
 
+  const { current } = useProject()
   const session = useSession(id ?? "")
   const [activities, setActivities] = useState<ActivityEntry[]>([])
   const { query, setQuery, tasks } = useTaskSearch(current?.name)
+  const { files: diffFiles } = useDiffFiles(id ?? "")
 
   useEffect(() => {
     if (!id) return
@@ -65,6 +69,18 @@ export function TaskDetail() {
     }
   }, [session.taskStatus])
 
+  const handleScrollToFile = useCallback((path: string) => {
+    const el = document.getElementById(`diff-file-${path}`)
+    el?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [])
+
+  const handleSendComments = useCallback((comments: DiffComment[]) => {
+    const text = comments
+      .map((c) => `[${c.filePath}:${c.lineRef}] ${c.text}`)
+      .join("\n\n")
+    session.sendPrompt(text)
+  }, [session])
+
   if (loading) {
     return (
       <div className="flex h-full">
@@ -99,22 +115,34 @@ export function TaskDetail() {
       <div className="hidden h-full w-full md:flex">
         <TasksSidebar tasks={tasks} searchQuery={query} onSearchChange={setQuery} onNewAgent={() => navigate("/")} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <ChatPanel
-            messages={session.messages}
-            agentStatus={session.agentStatus}
-            queueLength={session.queueLength}
-            taskTitle={task.title}
-            branch={task.branch ?? undefined}
-            prUrl={task.prUrl ?? undefined}
-            model={task.model}
-            onSend={session.sendPrompt}
-            onAbort={session.abort}
-            onToggleActivity={() => setShowActivity(!showActivity)}
-            showActivityToggle
-          />
+          {panelTab === "changes" && diffFiles.length > 0 ? (
+            <DiffView files={diffFiles} />
+          ) : (
+            <ChatPanel
+              messages={session.messages}
+              agentStatus={session.agentStatus}
+              queueLength={session.queueLength}
+              taskTitle={task.title}
+              branch={task.branch ?? undefined}
+              prUrl={task.prUrl ?? undefined}
+              model={task.model}
+              onSend={session.sendPrompt}
+              onAbort={session.abort}
+              onToggleActivity={() => setShowActivity(!showActivity)}
+              showActivityToggle
+            />
+          )}
         </div>
         {showActivity && (
-          <ActivityPanel taskId={id!} onCollapse={() => setShowActivity(false)} />
+          <ActivityPanel
+            taskId={id!}
+            diffFiles={diffFiles}
+            activeTab={panelTab}
+            onTabChange={setPanelTab}
+            onCollapse={() => setShowActivity(false)}
+            onScrollToFile={handleScrollToFile}
+            onSendComments={handleSendComments}
+          />
         )}
       </div>
 
@@ -134,7 +162,7 @@ export function TaskDetail() {
 
         {/* View tabs */}
         <div className="flex items-center gap-1 border-b border-edge bg-surface-secondary px-3 py-1" role="tablist">
-          {(["chat", "diff", "activities"] as const).map((t) => (
+          {(["chat", "changes", "activities"] as const).map((t) => (
             <button
               key={t}
               role="tab"
@@ -149,7 +177,7 @@ export function TaskDetail() {
           ))}
         </div>
 
-        {/* Tab content — uses same shared components as desktop */}
+        {/* Tab content */}
         <div className="min-h-0 flex-1">
           {mobileTab === "chat" && (
             <ChatPanel
@@ -160,7 +188,7 @@ export function TaskDetail() {
               onAbort={session.abort}
             />
           )}
-          {mobileTab === "diff" && <DiffView taskId={id!} />}
+          {mobileTab === "changes" && <DiffView files={diffFiles} />}
           {mobileTab === "activities" && <ActivityList activities={activities} variant="timeline" />}
         </div>
       </div>

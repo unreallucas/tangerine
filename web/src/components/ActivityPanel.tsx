@@ -1,17 +1,23 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { ActivityEntry } from "@tangerine/shared"
+import type { DiffFile } from "../lib/api"
 import { fetchActivities } from "../lib/api"
 import { ActivityList } from "./ActivityList"
+import { ChangesPanel, type DiffComment } from "./ChangesPanel"
 
-type PanelTab = "activities" | "diff"
+export type PanelTab = "activities" | "changes"
 
 interface ActivityPanelProps {
   taskId: string
+  diffFiles: DiffFile[]
+  activeTab: PanelTab
+  onTabChange: (tab: PanelTab) => void
   onCollapse?: () => void
+  onScrollToFile?: (path: string) => void
+  onSendComments?: (comments: DiffComment[]) => void
 }
 
-export function ActivityPanel({ taskId, onCollapse }: ActivityPanelProps) {
-  const [tab, setTab] = useState<PanelTab>("activities")
+export function ActivityPanel({ taskId, diffFiles, activeTab, onTabChange, onCollapse, onScrollToFile, onSendComments }: ActivityPanelProps) {
   const [activities, setActivities] = useState<ActivityEntry[]>([])
 
   useEffect(() => {
@@ -36,10 +42,10 @@ export function ActivityPanel({ taskId, onCollapse }: ActivityPanelProps) {
         <div className="flex items-center gap-0.5" role="tablist">
           <button
             role="tab"
-            aria-selected={tab === "activities"}
-            onClick={() => setTab("activities")}
+            aria-selected={activeTab === "activities"}
+            onClick={() => onTabChange("activities")}
             className={`rounded-sm px-3 py-1.5 text-[13px] font-medium ${
-              tab === "activities"
+              activeTab === "activities"
                 ? "bg-surface text-fg shadow-sm"
                 : "text-fg-muted"
             }`}
@@ -48,15 +54,20 @@ export function ActivityPanel({ taskId, onCollapse }: ActivityPanelProps) {
           </button>
           <button
             role="tab"
-            aria-selected={tab === "diff"}
-            onClick={() => setTab("diff")}
+            aria-selected={activeTab === "changes"}
+            onClick={() => onTabChange("changes")}
             className={`rounded-sm px-3 py-1.5 text-[13px] font-medium ${
-              tab === "diff"
+              activeTab === "changes"
                 ? "bg-surface text-fg shadow-sm"
                 : "text-fg-muted"
             }`}
           >
-            Diff
+            Changes
+            {diffFiles.length > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-fg px-1 text-[10px] font-semibold text-surface">
+                {diffFiles.length}
+              </span>
+            )}
           </button>
         </div>
         {onCollapse && (
@@ -69,13 +80,17 @@ export function ActivityPanel({ taskId, onCollapse }: ActivityPanelProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pt-3">
-        {tab === "activities" ? (
-          <ActivityList activities={activities} variant="compact" />
-        ) : (
-          <div className="py-8 text-center text-[12px] text-fg-muted">
-            No file changes yet
+      <div className="min-h-0 flex-1">
+        {activeTab === "activities" ? (
+          <div className="h-full overflow-y-auto px-4 pt-3">
+            <ActivityList activities={activities} variant="compact" />
           </div>
+        ) : (
+          <ChangesPanel
+            files={diffFiles}
+            onScrollToFile={onScrollToFile}
+            onSendComments={onSendComments}
+          />
         )}
       </div>
     </div>
