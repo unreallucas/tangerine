@@ -240,23 +240,11 @@ export async function start(): Promise<void> {
       getAgentFactory,
     }
 
-    // Override agentFactory per-task based on provider field
-    const originalCreateTask = taskManager.createTask
-    const createTaskWithProvider = (
-      deps: TaskManagerDeps,
-      params: Parameters<typeof originalCreateTask>[1],
-    ) => {
-      // Set the correct agent factory before lifecycle starts
-      const factory = getAgentFactory(params.provider ?? "opencode")
-      deps.lifecycleDeps.agentFactory = factory
-      return originalCreateTask(deps, params)
-    }
-
     const deps: AppDeps = {
       db,
       taskManager: {
         createTask: (params) =>
-          createTaskWithProvider(tmDeps, {
+          taskManager.createTask(tmDeps, {
             source: params.source as taskManager.TaskSource,
             projectId: params.projectId,
             title: params.title,

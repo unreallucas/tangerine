@@ -62,7 +62,16 @@ export function createClaudeCodeProvider(): AgentFactory {
               new Promise<false>((resolve) => setTimeout(() => resolve(false), 3000)),
             ])
             if (exitedEarly) {
-              taskLog.info("Resume failed (process exited), starting fresh session")
+              // Capture stderr to diagnose why resume failed
+              let stderr = ""
+              try {
+                stderr = await new Response(proc.stderr as ReadableStream).text()
+              } catch { /* stderr may be closed */ }
+              taskLog.warn("Resume failed, falling back to fresh session", {
+                resumeSessionId: ctx.resumeSessionId,
+                exitCode: proc.exitCode,
+                stderr: stderr.trim().slice(0, 200) || undefined,
+              })
               sessionId = crypto.randomUUID()
               proc = spawnClaude(`--session-id ${sessionId}`)
               taskLog.info("Claude Code respawned fresh", { sessionId })

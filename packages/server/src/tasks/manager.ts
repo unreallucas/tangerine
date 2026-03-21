@@ -19,6 +19,13 @@ import { emitStatusChange } from "./events"
 
 const log = createLogger("tasks")
 
+/** Create a per-task copy of lifecycleDeps with the correct agent factory.
+ *  Avoids mutating the shared deps object — safe for concurrent tasks with different providers. */
+function depsForProvider(deps: TaskManagerDeps, provider: string): LifecycleDeps {
+  if (!deps.getAgentFactory) return deps.lifecycleDeps
+  return { ...deps.lifecycleDeps, agentFactory: deps.getAgentFactory(provider) }
+}
+
 export type TaskSource = "github" | "manual" | "api"
 
 export interface TaskManagerDeps {
@@ -85,9 +92,10 @@ export function createTask(
 
     emitStatusChange(id, task.status)
 
-    // Kick off provisioning as a daemon fiber so it outlives the request scope
+    // Kick off provisioning — per-task deps copy with correct agent factory
+    const taskLifecycleDeps = depsForProvider(deps, params.provider ?? "opencode")
     yield* Effect.forkDaemon(
-      startSessionWithRetry(task, projectConfig, deps.credentialConfig, deps.lifecycleDeps, deps.retryDeps)
+      startSessionWithRetry(task, projectConfig, deps.credentialConfig, taskLifecycleDeps, deps.retryDeps)
     )
 
     return task
@@ -226,10 +234,8 @@ export function resumeOrphanedTasks(
 
       log.info("Resuming orphaned task", { taskId: task.id, status: task.status, title: task.title })
 
-      // Set the correct agent factory for this task's provider
-      if (deps.getAgentFactory) {
-        deps.lifecycleDeps.agentFactory = deps.getAgentFactory(task.provider)
-      }
+      // Per-task copy of lifecycleDeps with the correct factory — avoids shared mutable state
+      const taskLifecycleDeps = depsForProvider(deps, task.provider)
 
       // Reset task state (VM persists per-project, no need to release)
       yield* deps.updateTask(task.id, {
@@ -241,7 +247,7 @@ export function resumeOrphanedTasks(
       }).pipe(Effect.ignoreLogged)
 
       yield* Effect.forkDaemon(
-        startSessionWithRetry(task, projectConfig, deps.credentialConfig, deps.lifecycleDeps, deps.retryDeps)
+        startSessionWithRetry(task, projectConfig, deps.credentialConfig, taskLifecycleDeps, deps.retryDeps)
       )
     }
 
@@ -255,13 +261,10 @@ export function resumeOrphanedTasks(
 
       log.info("Reconnecting running task", { taskId: task.id, provider: task.provider, title: task.title })
 
-      // Set the correct agent factory for this task's provider
-      if (deps.getAgentFactory) {
-        deps.lifecycleDeps.agentFactory = deps.getAgentFactory(task.provider)
-      }
+      const taskLifecycleDeps = depsForProvider(deps, task.provider)
 
       yield* Effect.forkDaemon(
-        reconnectSessionWithRetry(task, projectConfig, deps.credentialConfig, deps.lifecycleDeps, deps.retryDeps)
+        reconnectSessionWithRetry(task, projectConfig, deps.credentialConfig, taskLifecycleDeps, deps.retryDeps)
       )
     }
 
@@ -314,15 +317,12 @@ export function changeModel(
       from: task.model, to: model,
     }).pipe(Effect.catchAll(() => Effect.void))
 
-    // Set correct agent factory
-    if (deps.getAgentFactory) {
-      deps.lifecycleDeps.agentFactory = deps.getAgentFactory(updatedTask.provider)
-    }
+    const taskLifecycleDeps = depsForProvider(deps, updatedTask.provider)
 
     // Reconnect with new model + resume session
     const taskWithSession = { ...updatedTask, agent_session_id: sessionId }
     yield* Effect.forkDaemon(
-      reconnectSessionWithRetry(taskWithSession, projectConfig, deps.credentialConfig, deps.lifecycleDeps, deps.retryDeps)
+      reconnectSessionWithRetry(taskWithSession, projectConfig, deps.credentialConfig, taskLifecycleDeps, deps.retryDeps)
     )
   })
 }
