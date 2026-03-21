@@ -100,8 +100,8 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort, m
         </button>
       </div>
 
-      {/* Desktop: model + reasoning selectors + stop button */}
-      <div className="mt-2 hidden items-center justify-between md:flex">
+      {/* Model + reasoning selectors + stop button */}
+      <div className="mt-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {canChangeModel ? (
             <ModelSelector
@@ -122,7 +122,7 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort, m
         {isWorking && (
           <button
             onClick={onAbort}
-            className="flex items-center gap-1 rounded bg-status-error px-2 py-1"
+            className="hidden items-center gap-1 rounded bg-status-error px-2 py-1 md:flex"
           >
             <svg className="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="1" />

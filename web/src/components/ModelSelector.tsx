@@ -51,7 +51,7 @@ export function ModelSelector({ models: propModels, model: propModel, onModelCha
       </button>
 
       {open && models.length > 0 && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-[240px] min-w-[240px] overflow-y-auto rounded-lg border border-edge bg-white shadow-lg md:bottom-full md:top-auto md:mb-1 md:mt-0 md:max-h-[300px]">
+        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-[240px] min-w-[240px] overflow-y-auto rounded-lg border border-edge bg-white shadow-lg md:max-h-[300px]">
           {models.map((m) => {
             const isActive = m === model
             return (

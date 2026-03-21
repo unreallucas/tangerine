@@ -49,7 +49,7 @@ export function ReasoningEffortSelector({ value, onChange }: ReasoningEffortSele
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-edge bg-white shadow-lg md:bottom-full md:top-auto md:mb-1 md:mt-0">
+        <div className="absolute bottom-full left-0 z-50 mb-1 min-w-[180px] overflow-hidden rounded-lg border border-edge bg-white shadow-lg">
           {EFFORTS.map((e) => {
             const isActive = e.value === value
             return (
