@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useProject } from "../context/ProjectContext"
 import { formatModelName } from "../lib/format"
 
@@ -17,7 +17,9 @@ export function ModelSelector({ models: propModels, model: propModel, onModelCha
   const model = propModel ?? ctx.model
   const setModel = onModelChange ?? ctx.setModel
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
   const ref = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -29,6 +31,24 @@ export function ModelSelector({ models: propModels, model: propModel, onModelCha
     document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
   }, [open])
+
+  // Focus search input when dropdown opens, clear search on close
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 0)
+    } else {
+      setSearch("")
+    }
+  }, [open])
+
+  const filtered = search
+    ? models.filter((m) => m.toLowerCase().includes(search.toLowerCase()))
+    : models
+
+  const handleSelect = useCallback((m: string) => {
+    setModel(m)
+    setOpen(false)
+  }, [setModel])
 
   if (!model || !models.length) return null
 
@@ -51,29 +71,44 @@ export function ModelSelector({ models: propModels, model: propModel, onModelCha
       </button>
 
       {open && models.length > 0 && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-[240px] min-w-[240px] overflow-y-auto rounded-lg border border-edge bg-white shadow-lg md:max-h-[300px]">
-          {models.map((m) => {
-            const isActive = m === model
-            return (
-              <button
-                key={m}
-                onClick={() => {
-                  setModel(m)
-                  setOpen(false)
-                }}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-[12px] transition ${
-                  isActive ? "bg-surface-secondary font-medium text-fg" : "text-neutral-600 hover:bg-surface"
-                }`}
-              >
-                <span>{formatModelName(m)}</span>
-                {isActive && (
-                  <svg className="h-3 w-3 text-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                  </svg>
-                )}
-              </button>
-            )
-          })}
+        <div className="absolute bottom-full left-0 z-50 mb-1 min-w-[260px] overflow-hidden rounded-lg border border-edge bg-white shadow-lg">
+          {models.length > 5 && (
+            <div className="border-b border-edge px-2 py-1.5">
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search models..."
+                className="w-full bg-transparent text-[16px] text-fg placeholder:text-fg-muted outline-none md:text-[12px]"
+              />
+            </div>
+          )}
+          <div className="max-h-[200px] overflow-y-auto md:max-h-[280px]">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-2 text-[12px] text-fg-muted">No models match</div>
+            ) : (
+              filtered.map((m) => {
+                const isActive = m === model
+                return (
+                  <button
+                    key={m}
+                    onClick={() => handleSelect(m)}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[12px] transition ${
+                      isActive ? "bg-surface-secondary font-medium text-fg" : "text-neutral-600 hover:bg-surface"
+                    }`}
+                  >
+                    <span>{formatModelName(m)}</span>
+                    {isActive && (
+                      <svg className="h-3 w-3 text-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
       )}
     </div>
