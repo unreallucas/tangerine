@@ -13,19 +13,12 @@ export type {
 } from "./types"
 
 export {
-  previewConfigSchema,
   projectConfigSchema,
-  githubTriggerSchema,
-  githubIntegrationSchema,
-  integrationsSchema,
-  poolConfigSchema,
   tangerineConfigSchema,
 } from "./config"
 
 export type {
-  PreviewConfig,
   ProjectConfig,
-  PoolSettings,
   TangerineConfig,
 } from "./config"
 

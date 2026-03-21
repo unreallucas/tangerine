@@ -2,8 +2,9 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import type { Task, TaskStatus } from "@tangerine/shared"
 import { getStatusConfig } from "../lib/status"
-import { formatDuration, formatDate } from "../lib/format"
+import { formatDuration } from "../lib/format"
 import { cancelTask, deleteTask } from "../lib/api"
+import { RunCard } from "./RunCard"
 
 type StatusFilter = "all" | "running" | "done" | "failed" | "created"
 
@@ -140,48 +141,12 @@ export function RunsTable({ tasks, searchQuery, onSearchChange, onRefetch }: Run
           <div className="py-12 text-center text-[13px] text-fg-muted">No runs found</div>
         ) : (
           filtered.map((task) => (
-            <Link
+            <RunCard
               key={task.id}
-              to={`/tasks/${task.id}`}
-              className="rounded-[10px] border border-edge p-3.5 active:bg-surface-secondary/50"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate text-[14px] font-medium text-fg">{task.title}</span>
-                <StatusBadge status={task.status} />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-fg-muted">
-                <span>{formatDuration(task.startedAt, task.completedAt, task.createdAt)}</span>
-                <span className="capitalize">{task.source}</span>
-                <span>{formatDate(task.createdAt)}</span>
-              </div>
-              {/* Actions */}
-              {(task.status === "running" || isTerminal(task.status)) && (
-                <div className="mt-2 flex gap-2">
-                  {task.status === "running" && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); handleCancel(task.id) }}
-                      className="flex items-center gap-1 rounded-md border border-edge px-2.5 py-1 text-[11px] text-fg-muted active:bg-surface-secondary"
-                    >
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                      Cancel
-                    </button>
-                  )}
-                  {isTerminal(task.status) && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); handleDelete(task.id) }}
-                      className="flex items-center gap-1 rounded-md border border-edge px-2.5 py-1 text-[11px] text-fg-muted active:bg-surface-secondary"
-                    >
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
-                      Delete
-                    </button>
-                  )}
-                </div>
-              )}
-            </Link>
+              task={task}
+              onCancel={task.status === "running" ? handleCancel : undefined}
+              onDelete={isTerminal(task.status) ? handleDelete : undefined}
+            />
           ))
         )}
       </div>

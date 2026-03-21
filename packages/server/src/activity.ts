@@ -80,38 +80,3 @@ function mapRow(row: ActivityLogRow): ActivityEntry {
   }
 }
 
-/* ── Convenience helpers for common events ── */
-
-export const Activity = {
-  taskCreated(db: Database, taskId: string, title: string) {
-    return logActivity(db, taskId, "lifecycle", "task.created", `Task created: ${title}`)
-  },
-
-  statusChanged(db: Database, taskId: string, from: string, to: string) {
-    return logActivity(db, taskId, "lifecycle", "task.status_changed", `Status: ${from} → ${to}`, { from, to })
-  },
-
-  taskCompleted(db: Database, taskId: string) {
-    return logActivity(db, taskId, "lifecycle", "task.completed", "Task completed")
-  },
-
-  taskFailed(db: Database, taskId: string, error?: string) {
-    return logActivity(db, taskId, "lifecycle", "task.failed", `Task failed${error ? `: ${error}` : ""}`, error ? { error } : undefined)
-  },
-
-  taskCancelled(db: Database, taskId: string) {
-    return logActivity(db, taskId, "lifecycle", "task.cancelled", "Task cancelled")
-  },
-
-  fileChanged(db: Database, taskId: string, path: string, action: "created" | "modified" | "deleted") {
-    return logActivity(db, taskId, "file", `file.${action}`, `${action}: ${path}`, { path, action })
-  },
-
-  vmAcquired(db: Database, taskId: string, vmId: string) {
-    return logActivity(db, taskId, "system", "vm.acquired", `VM acquired: ${vmId}`, { vmId })
-  },
-
-  agentStarted(db: Database, taskId: string, sessionId: string) {
-    return logActivity(db, taskId, "system", "agent.started", "Agent started", { sessionId })
-  },
-}

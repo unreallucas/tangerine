@@ -1,7 +1,6 @@
 // Server entry point — re-exports public API surface
 export { createApp } from "./api/app"
 export type { AppDeps } from "./api/app"
-export { VMPoolManager } from "./vm/pool"
 export { loadConfig } from "./config"
 export type { AppConfig } from "./config"
 export { getDb } from "./db/index"

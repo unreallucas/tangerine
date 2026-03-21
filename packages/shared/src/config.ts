@@ -1,11 +1,11 @@
 import { z } from "zod"
 
-export const previewConfigSchema = z.object({
+const previewConfigSchema = z.object({
   port: z.number().default(3000),
   path: z.string().default("/"),
 })
 
-export const poolConfigSchema = z.object({
+const poolConfigSchema = z.object({
   maxPoolSize: z.number().default(2),
   minReady: z.number().default(1),
   idleTimeoutMs: z.number().default(600_000),
@@ -26,18 +26,18 @@ export const projectConfigSchema = z.object({
   pool: poolConfigSchema.partial().optional(), // deprecated, kept for config compat
 })
 
-export const githubTriggerSchema = z.object({
+const githubTriggerSchema = z.object({
   type: z.enum(["label", "assignee"]),
   value: z.string(),
 })
 
-export const githubIntegrationSchema = z.object({
+const githubIntegrationSchema = z.object({
   webhookSecret: z.string().optional(),
   pollIntervalMinutes: z.number().default(60),
   trigger: githubTriggerSchema.optional(),
 })
 
-export const integrationsSchema = z.object({
+const integrationsSchema = z.object({
   github: githubIntegrationSchema.optional(),
 })
 
@@ -56,7 +56,5 @@ export const tangerineConfigSchema = z.object({
   pool: poolConfigSchema.default({}),
 })
 
-export type PreviewConfig = z.infer<typeof previewConfigSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
-export type PoolSettings = z.infer<typeof poolConfigSchema>
 export type TangerineConfig = z.infer<typeof tangerineConfigSchema>
