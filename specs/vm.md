@@ -83,6 +83,10 @@ Tasks use `git worktree add` for isolation instead of full clones.
 
 On task completion: `git worktree remove <path> --force` (falls back to `rm -rf`). VM persists.
 
+## SSH Agent Forwarding
+
+Lima VMs are configured with `forwardAgent: true`, forwarding the host's SSH agent socket into the VM. This enables git SSH auth using the host's keys — including hardware tokens (YubiKey, 1Password SSH agent, macOS Keychain). See [credentials.md](./credentials.md#git-authentication) for full details.
+
 ## SSH Tunnels
 
 Each OpenCode task establishes SSH tunnels from host to VM:

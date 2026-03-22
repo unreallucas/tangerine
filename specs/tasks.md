@@ -6,7 +6,13 @@ Tasks are units of work. Sourced from external issue trackers, not created manua
 
 ### GitHub Issues (v0)
 
-Webhook on issue events:
+Two mechanisms — polling (primary) and webhooks (optional):
+
+**Polling** (primary): GitHub REST API polls open issues on a configurable interval (default 60 min). Filters by label or assignee trigger. Deduplicates by `github:<repo>#<number>` source ID.
+
+**Webhooks** (optional): `POST /webhooks/github` receives `issues` events. HMAC-SHA256 signature verification. Fires on `opened`, `labeled`, `assigned` actions.
+
+Both use the same trigger config and task creation path:
 - **Trigger**: issue labeled with configurable label (e.g. `agent`) or assigned to a specific user
 - **Payload**: title, body, repo, issue number, author
 - **Mapping**: one issue = one task
@@ -111,26 +117,39 @@ On task completion/cancellation:
 3. Remove worktree from VM (`git worktree remove --force`)
 4. VM persists for the project — not destroyed
 
-## GitHub Webhook Handler
+## GitHub Integration
 
-### Setup
+### Polling (primary)
+
+Runs on a configurable interval (`integrations.github.pollIntervalMinutes`, default 60). Uses `GITHUB_TOKEN` to fetch open issues via GitHub REST API. Filters by trigger config (label or assignee), deduplicates by `github:<repo>#<number>`, creates tasks for new matches.
+
+### Webhook (optional)
 
 1. Create GitHub webhook on repo (or org-wide)
 2. Point to `http://<host>:<port>/webhooks/github`
-3. Set secret for signature verification
+3. Set secret for signature verification (`integrations.github.webhookSecret`)
 4. Subscribe to `issues` events
-
-### Processing
 
 ```
 POST /webhooks/github
-  → Verify signature
-  → Check event type (issues.labeled, issues.assigned)
-  → Check label/assignee matches config
+  → Verify HMAC-SHA256 signature
+  → Check event type (issues.opened, issues.labeled, issues.assigned)
+  → Check label/assignee matches trigger config
   → Create task
   → Respond 202 Accepted
   → Async: get VM, create worktree, start session
 ```
+
+### Git Authentication
+
+See [credentials.md](./credentials.md#git-authentication) for full details. Two mechanisms:
+
+- **SSH agent forwarding** (default): host's SSH agent socket forwarded into VM via Lima (`forwardAgent: true`). Works with hardware keys (YubiKey, 1Password).
+- **HTTPS credential helper**: `git credential.helper store` + `~/.git-credentials` with `GITHUB_TOKEN` and `GH_ENTERPRISE_TOKEN`.
+
+### GHE (GitHub Enterprise)
+
+Supported via `GH_ENTERPRISE_TOKEN` + `GH_HOST` env vars. Both are injected into the VM and used by `gh` CLI and git credential helper.
 
 ## Concurrency
 
