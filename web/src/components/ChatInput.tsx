@@ -60,7 +60,7 @@ export function ChatInput({ onSend, disabled, queueLength, isWorking, onAbort, m
               handleInput()
             }}
             onKeyDown={handleKeyDown}
-            placeholder={disabled ? "Agent is working..." : "Message agent..."}
+            placeholder={isWorking ? "Agent is working... (messages will be queued)" : "Message agent..."}
             disabled={disabled}
             rows={1}
             className="min-h-9 w-full resize-none rounded-lg border border-edge bg-surface px-3 py-2 text-[16px] text-fg placeholder-fg-faint outline-none transition focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50 md:px-3.5 md:text-[13px] md:placeholder-fg-muted"

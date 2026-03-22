@@ -73,7 +73,7 @@ export function ChatPanel({
       {/* Input */}
       <ChatInput
         onSend={onSend}
-        disabled={agentStatus === "working"}
+        disabled={false}
         queueLength={queueLength}
         isWorking={agentStatus === "working"}
         onAbort={onAbort}
