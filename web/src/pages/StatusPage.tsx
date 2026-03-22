@@ -4,7 +4,7 @@ import { useProject } from "../context/ProjectContext"
 import { useTaskSearch } from "../hooks/useTaskSearch"
 import { TasksSidebar } from "../components/TasksSidebar"
 import { ActiveRunsCard, VmSummaryCard, ImageCard, VmList, BuildLog, SystemLog } from "../components/StatusWidgets"
-import { fetchVms, fetchImages, fetchBuildStatus, triggerImageBuild, type VmInfo, type ImageInfo, type BuildStatus } from "../lib/api"
+import { fetchVms, fetchImages, fetchBuildStatus, triggerImageBuild, triggerBaseBuild, type VmInfo, type ImageInfo, type BuildStatus } from "../lib/api"
 
 export function StatusPage() {
   const navigate = useNavigate()
@@ -33,7 +33,16 @@ export function StatusPage() {
 
   const handleBuild = useCallback(async () => {
     await triggerImageBuild(current?.name).catch(() => {})
-    // Immediate refetch to show building state
+    const bs = await fetchBuildStatus().catch(() => ({ status: "idle" as const }))
+    setBuildStatus(bs)
+  }, [current?.name])
+
+  const handleBuildBase = useCallback(async () => {
+    const confirmed = window.confirm(
+      "Rebuild base will destroy the current VM and rebuild both base and project images. Unpushed branches will be lost.\n\nContinue?"
+    )
+    if (!confirmed) return
+    await triggerBaseBuild(current?.name).catch(() => {})
     const bs = await fetchBuildStatus().catch(() => ({ status: "idle" as const }))
     setBuildStatus(bs)
   }, [current?.name])
@@ -70,7 +79,7 @@ export function StatusPage() {
             <div className="flex flex-col gap-4 md:flex-row md:gap-4">
               <ActiveRunsCard tasks={tasks} />
               <VmSummaryCard vms={vms} />
-              <ImageCard image={images[0] ?? null} projectImage={current?.image} buildStatus={buildStatus} onBuild={handleBuild} />
+              <ImageCard image={images[0] ?? null} projectImage={current?.image} buildStatus={buildStatus} onBuild={handleBuild} onBuildBase={handleBuildBase} />
             </div>
 
             {/* VM list */}

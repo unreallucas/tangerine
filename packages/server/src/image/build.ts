@@ -132,6 +132,7 @@ async function ensureBase(provider: LimaProvider, logFile: string, log: Logger):
 /**
  * Build only the base VM from template. Called from CLI.
  * This is the slow step (~10 min) that installs all common tools.
+ * Always destroys and recreates the base VM to pick up template changes.
  */
 export async function buildBase(log: Logger): Promise<void> {
   const provider = new LimaProvider({ templatePath: TEMPLATE_PATH });
@@ -140,6 +141,22 @@ export async function buildBase(log: Logger): Promise<void> {
   mkdirSync(LOG_DIR, { recursive: true });
   writeFileSync(logFile, `=== Base image build ===\n`);
   appendLog(logFile, `Template: ${TEMPLATE_PATH}`);
+
+  // Destroy existing base VM to force a fresh build
+  try {
+    const existing = await Effect.runPromise(provider.getInstance(BASE_VM_NAME));
+    if (existing) {
+      appendLog(logFile, "Destroying existing base VM for rebuild...");
+      log.info("Destroying existing base VM for rebuild");
+      if (existing.status === "active") {
+        await Effect.runPromise(provider.stopInstance(BASE_VM_NAME));
+      }
+      await Effect.runPromise(provider.destroyInstance(BASE_VM_NAME));
+      appendLog(logFile, "Existing base VM destroyed");
+    }
+  } catch {
+    // Doesn't exist, fine
+  }
 
   await ensureBase(provider, logFile, log);
 }
@@ -290,8 +307,63 @@ export async function buildImage(imageName: string, log: Logger, opts?: { requir
   if (cleanedReadyVms > 0) {
     appendLog(logFile, `Destroyed ${cleanedReadyVms} stale ready VM(s) using previous image`);
   }
+
+  // Destroy active project VMs so next task provisions from the new image
+  const cleanedActiveVms = await cleanupProjectVmsForImage(db, provider, imageName, logFile, log);
+  if (cleanedActiveVms > 0) {
+    appendLog(logFile, `Destroyed ${cleanedActiveVms} active project VM(s) using previous image`);
+  }
   appendLog(logFile, `\n=== Build complete ===`);
   log.info("Golden image built successfully", { imageId, cloneSource: goldenName, pruned, cleanedReadyVms });
+}
+
+/**
+ * Destroy active/stopped project VMs that were cloned from the old golden image.
+ * After rebuilding a golden image, these VMs are stale and need re-provisioning.
+ * Also fails any tasks referencing these VMs so they can be retried on the new image.
+ */
+async function cleanupProjectVmsForImage(
+  db: Database,
+  provider: Provider,
+  imageName: string,
+  logFile: string,
+  log: Logger,
+): Promise<number> {
+  const snapshotId = `clone:${goldenVmName(imageName)}`;
+  const allVms = Effect.runSync(listVms(db));
+  const staleVms = allVms.filter(
+    (vm) => vm.snapshot_id === snapshotId && ["active", "stopped"].includes(vm.status)
+  );
+
+  let destroyed = 0;
+  for (const vm of staleVms) {
+    // Fail any tasks referencing this VM before destroying it
+    const affectedTasks = db
+      .prepare("SELECT id, status FROM tasks WHERE vm_id = ? AND status IN ('running', 'provisioning', 'created')")
+      .all(vm.id) as Array<{ id: string; status: string }>;
+
+    for (const task of affectedTasks) {
+      db.prepare("UPDATE tasks SET status = 'failed', error = 'VM destroyed for image rebuild', updated_at = datetime('now') WHERE id = ?")
+        .run(task.id);
+      appendLog(logFile, `Failed task ${task.id} (was ${task.status}) — VM being destroyed`);
+      log.info("Failed task due to image rebuild", { taskId: task.id, vmId: vm.id });
+    }
+
+    try {
+      await Effect.runPromise(provider.destroyInstance(vm.id));
+    } catch (err) {
+      appendLog(logFile, `WARN: Failed to destroy project VM ${vm.id}: ${String(err)}`);
+      log.warn("Failed to destroy project VM", { vmId: vm.id, error: String(err) });
+      continue;
+    }
+
+    Effect.runSync(updateVmStatus(db, vm.id, "destroyed"));
+    appendLog(logFile, `Destroyed project VM: ${vm.id}`);
+    log.info("Destroyed stale project VM", { vmId: vm.id, projectId: vm.project_id });
+    destroyed++;
+  }
+
+  return destroyed;
 }
 
 /**

@@ -14,8 +14,9 @@ import { DiffView } from "../components/DiffView"
 import { ActivityList } from "../components/ActivityList"
 import { ChangesPanel as DiffSidebar, type DiffComment } from "../components/ChangesPanel"
 import { ResizeHandle, PaneToggle } from "../components/PaneControls"
+import { TerminalPane } from "../components/TerminalPane"
 
-type PaneId = "chat" | "diff" | "activity"
+type PaneId = "chat" | "diff" | "terminal" | "activity"
 
 export function TaskDetail() {
   const { id } = useParams<{ id: string }>()
@@ -238,6 +239,12 @@ export function TaskDetail() {
                   <path d="M13 6h3a2 2 0 0 1 2 2v7M11 18H8a2 2 0 0 1-2-2V9" />
                 </svg>
               </PaneToggle>
+              <PaneToggle desktopActive={visiblePanes.has("terminal")} mobileActive={mobilePane === "terminal"} onClick={() => togglePane("terminal")} label="Terminal">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3" />
+                  <rect x="2" y="3" width="20" height="18" rx="2" />
+                </svg>
+              </PaneToggle>
               <PaneToggle desktopActive={visiblePanes.has("activity")} mobileActive={mobilePane === "activity"} onClick={() => togglePane("activity")} label="Activity">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
@@ -309,7 +316,17 @@ export function TaskDetail() {
             </div>
           )}
 
-          {visiblePanes.has("activity") && (visiblePanes.has("chat") || visiblePanes.has("diff")) && (
+          {visiblePanes.has("terminal") && (visiblePanes.has("chat") || visiblePanes.has("diff")) && (
+            <ResizeHandle onMouseDown={activityResize.onMouseDown} />
+          )}
+
+          {visiblePanes.has("terminal") && (
+            <div className={`flex min-w-0 flex-col${desktopIsSolo ? " flex-1" : ""}`} style={desktopIsSolo ? undefined : { width: activityWidth, flexShrink: 0 }}>
+              <TerminalPane taskId={id!} />
+            </div>
+          )}
+
+          {visiblePanes.has("activity") && (visiblePanes.has("chat") || visiblePanes.has("diff") || visiblePanes.has("terminal")) && (
             <ResizeHandle onMouseDown={activityResize.onMouseDown} />
           )}
 
@@ -359,6 +376,11 @@ export function TaskDetail() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+          {mobilePane === "terminal" && (
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TerminalPane taskId={id!} />
             </div>
           )}
           {mobilePane === "activity" && (

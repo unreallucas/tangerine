@@ -393,6 +393,18 @@ export async function start(): Promise<void> {
             }
           }).pipe(Effect.catchAll(() => Effect.succeed({ running: false }))),
       },
+      preTeardown: {
+        listTasks: (filter) => listTasks(db, filter).pipe(
+          Effect.mapError((e) => new Error(e.message))
+        ),
+        getVm: (vmId) => getVm(db, vmId).pipe(
+          Effect.map((vm) => vm ? { ip: vm.ip, ssh_port: vm.ssh_port } : null),
+          Effect.mapError((e) => new Error(e.message))
+        ),
+        sshExec: (host, port, command) => sshExec(host, port, command).pipe(
+          Effect.mapError((e) => new Error(e.message))
+        ),
+      },
       sshExec: (host, port, command) =>
         sshExec(host, port, command).pipe(
           Effect.mapError((e) => ({ _tag: "SshError" as const, message: e.message }))

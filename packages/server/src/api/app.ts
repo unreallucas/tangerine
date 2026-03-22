@@ -5,6 +5,7 @@ import { Effect } from "effect"
 import { Hono } from "hono"
 import { logger as honoLogger } from "hono/logger"
 import { serveStatic } from "hono/bun"
+import { createBunWebSocket } from "hono/bun"
 import { createLogger } from "../logger"
 import type { AppConfig } from "../config"
 import type { Database } from "bun:sqlite"
@@ -17,7 +18,7 @@ import { systemRoutes } from "./routes/system"
 import { previewRoutes } from "./routes/preview"
 import { projectRoutes } from "./routes/project"
 import { wsRoutes } from "./routes/ws"
-import type { WsSetup } from "./routes/ws"
+import { terminalWsRoutes } from "./routes/terminal-ws"
 
 const log = createLogger("api")
 
@@ -45,9 +46,10 @@ export interface AppDeps {
   }
   imageBuild: {
     start(imageName: string): { ok: true } | { ok: false; reason: string }
-    startBase(): { ok: true } | { ok: false; reason: string }
+    startBase(projectImageName?: string, preTeardownDeps?: { projectId: string; deps: import("../image/build-service").PreTeardownDeps }): { ok: true } | { ok: false; reason: string }
     getStatus(): { status: "idle" } | { status: "building" | "success" | "failed"; imageName: string; startedAt: string; finishedAt?: string; error?: string }
   }
+  preTeardown: import("../image/build-service").PreTeardownDeps
   sshExec(host: string, port: number, command: string): Effect.Effect<string, TaggedError>
   devServer: {
     start(taskId: string): Effect.Effect<void, TaggedError>
@@ -61,8 +63,9 @@ export interface AppDeps {
   config: AppConfig
 }
 
-export function createApp(deps: AppDeps): { app: Hono; websocket: WsSetup["websocket"] } {
+export function createApp(deps: AppDeps): { app: Hono; websocket: ReturnType<typeof createBunWebSocket>["websocket"] } {
   const app = new Hono()
+  const { upgradeWebSocket, websocket } = createBunWebSocket()
 
   // Hono's built-in request logger for HTTP access logs
   app.use("*", honoLogger())
@@ -74,8 +77,8 @@ export function createApp(deps: AppDeps): { app: Hono; websocket: WsSetup["webso
   app.route("/api/projects", projectRoutes(deps))
   app.route("/preview", previewRoutes(deps))
 
-  const { routes: wsApp, websocket } = wsRoutes(deps)
-  app.route("/api/tasks", wsApp)
+  app.route("/api/tasks", wsRoutes(deps, upgradeWebSocket))
+  app.route("/api/tasks", terminalWsRoutes(deps, upgradeWebSocket))
 
   // Webhook endpoint — verifies signature, matches project by repo, creates tasks for issue events
   app.post("/webhooks/github", async (c) => {

@@ -188,6 +188,13 @@ export async function triggerImageBuild(project?: string): Promise<void> {
   })
 }
 
+export async function triggerBaseBuild(project?: string): Promise<void> {
+  await request<unknown>("/api/images/build-base", {
+    method: "POST",
+    body: JSON.stringify({ project }),
+  })
+}
+
 export async function fetchBuildStatus(): Promise<BuildStatus> {
   return request<BuildStatus>("/api/images/build-status")
 }

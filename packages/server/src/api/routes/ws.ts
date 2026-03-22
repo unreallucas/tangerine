@@ -1,22 +1,16 @@
 import { Effect } from "effect"
 import { Hono } from "hono"
-import { createBunWebSocket } from "hono/bun"
+import type { UpgradeWebSocket } from "hono/ws"
 import type { AppDeps } from "../app"
 import { getTask } from "../../db/queries"
 import type { WsClientMessage, WsServerMessage, TaskStatus } from "@tangerine/shared"
 
-export interface WsSetup {
-  routes: Hono
-  websocket: ReturnType<typeof createBunWebSocket>["websocket"]
-}
-
 /**
- * Creates WebSocket routes and returns both the Hono routes and the
- * Bun websocket handler (needed by Bun.serve).
+ * Creates WebSocket routes for task event streaming.
+ * Receives upgradeWebSocket from the shared createBunWebSocket() in app.ts.
  */
-export function wsRoutes(deps: AppDeps): WsSetup {
+export function wsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSocket): Hono {
   const app = new Hono()
-  const { upgradeWebSocket, websocket } = createBunWebSocket()
 
   app.get(
     "/:id/ws",
@@ -110,5 +104,5 @@ export function wsRoutes(deps: AppDeps): WsSetup {
     })
   )
 
-  return { routes: app, websocket }
+  return app
 }

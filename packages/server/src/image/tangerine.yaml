@@ -54,6 +54,7 @@ provision:
         curl \
         jq \
         openssh-server \
+        tmux \
         unzip \
         ca-certificates \
         gnupg
