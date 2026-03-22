@@ -381,3 +381,71 @@ export function abortAgent(
     yield* deps.abortAgent(task.agent_port, task.agent_session_id)
   })
 }
+
+/**
+ * Reprovision tasks after a VM is destroyed and rebuilt.
+ * Tasks with a remote branch are reset to "created" for reprovisioning.
+ * Tasks without a remote branch are marked "failed" (work is lost).
+ *
+ * checkRemoteBranch: SSH into the new VM to check if branch exists on remote.
+ * If no VM is available yet, all tasks with branches are optimistically reset.
+ */
+export function reprovisionTasksForVm(
+  deps: TaskManagerDeps,
+  vmId: string,
+  checkRemoteBranch?: (branch: string) => Effect.Effect<boolean, Error>,
+): Effect.Effect<{ reprovisioned: number; failed: number }, Error> {
+  return Effect.gen(function* () {
+    const allTasks = yield* deps.listTasks({})
+    const affected = allTasks.filter(
+      (t) => t.vm_id === vmId && !["done", "cancelled"].includes(t.status)
+    )
+
+    if (affected.length === 0) return { reprovisioned: 0, failed: 0 }
+
+    let reprovisioned = 0
+    let failed = 0
+
+    for (const task of affected) {
+      // If task has a branch, check if it exists on remote
+      if (task.branch && checkRemoteBranch) {
+        const exists = yield* checkRemoteBranch(task.branch).pipe(
+          Effect.catchAll(() => Effect.succeed(false))
+        )
+
+        if (!exists) {
+          yield* deps.updateTask(task.id, {
+            status: "failed",
+            error: "VM rebuilt — branch was not pushed to remote, work is lost",
+          }).pipe(Effect.ignoreLogged)
+          yield* deps.logActivity(task.id, "lifecycle", "task.failed",
+            `Task failed: branch ${task.branch} not found on remote after VM rebuild`
+          ).pipe(Effect.catchAll(() => Effect.void))
+          emitStatusChange(task.id, "failed")
+          failed++
+          continue
+        }
+      } else if (!task.branch) {
+        // No branch at all — task never started, safe to reprovision
+      }
+
+      // Reset for reprovisioning — keep branch so lifecycle picks it up from remote
+      yield* deps.updateTask(task.id, {
+        status: "created",
+        vm_id: null,
+        agent_session_id: null,
+        agent_port: null,
+        preview_port: null,
+        worktree_path: null,
+      }).pipe(Effect.ignoreLogged)
+      yield* deps.logActivity(task.id, "lifecycle", "task.reprovisioning",
+        "Task reset for reprovisioning after VM rebuild"
+      ).pipe(Effect.catchAll(() => Effect.void))
+      emitStatusChange(task.id, "created")
+      reprovisioned++
+    }
+
+    log.info("Tasks reprovisioned after VM rebuild", { vmId, reprovisioned, failed })
+    return { reprovisioned, failed }
+  })
+}

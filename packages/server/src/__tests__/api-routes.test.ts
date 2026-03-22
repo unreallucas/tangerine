@@ -81,6 +81,9 @@ function createMockDeps(db: Database, configOverrides?: Partial<AppDeps["config"
           db.prepare("UPDATE vms SET status = 'destroyed' WHERE id = ?").run(vmId)
         }).pipe(Effect.mapError((e) => ({ _tag: "VmNotFoundError" as const, message: String(e) })))
       },
+      reprovisionTasksForVm() {
+        return Effect.succeed({ reprovisioned: 0, failed: 0 })
+      },
       reconcile() {
         return Effect.succeed(undefined as void)
       },
@@ -387,12 +390,13 @@ describe("API routes", () => {
   })
 
   describe("DELETE /api/vms/:id", () => {
-    test("destroys a VM", async () => {
+    test("destroys a VM and reprovisions tasks", async () => {
       const vm = seedVm(db)
       const res = await app.fetch(new Request(`http://localhost/api/vms/${vm.id}`, { method: "DELETE" }))
       expect(res.status).toBe(200)
-      const body = await res.json() as { ok: boolean }
-      expect(body.ok).toBe(true)
+      const body = await res.json() as { reprovisioned: number; failed: number }
+      expect(body.reprovisioned).toBe(0)
+      expect(body.failed).toBe(0)
     })
 
     test("returns 500 for unknown VM", async () => {

@@ -335,6 +335,13 @@ export async function start(): Promise<void> {
               message: e.message,
             })),
           ),
+        reprovisionTasksForVm: (vmId: string) =>
+          taskManager.reprovisionTasksForVm(tmDeps, vmId).pipe(
+            Effect.mapError((e): { _tag: string; message?: string } => ({
+              _tag: "TaskError",
+              message: e.message,
+            })),
+          ),
         reconcile: () => Effect.void,
       },
       imageBuild: {

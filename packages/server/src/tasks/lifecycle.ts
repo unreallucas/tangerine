@@ -61,7 +61,8 @@ export function startSession(
     const sessionSpan = taskLog.startOp("session-start")
     const taskPrefix = task.id.slice(0, 8)
     const worktreePath = `/workspace/worktrees/${taskPrefix}`
-    const branch = `tangerine/${taskPrefix}`
+    // Reuse existing branch name if task was reprovisioned
+    const branch = task.branch ?? `tangerine/${taskPrefix}`
 
     // 1. Get or create persistent project VM
     taskLog.info("Getting VM for project", { projectId: task.project_id })
@@ -197,11 +198,17 @@ export function startSession(
     )
 
     // 5. Create worktree for this task
+    // If task has a branch that exists on remote (reprovisioned task), use it.
+    // Otherwise create a new branch from the default branch.
     yield* activity("worktree.creating", `Creating worktree at ${worktreePath}`)
     yield* deps.sshExec(
       vm.ip!,
       vm.ssh_port!,
-      `cd /workspace/repo && git worktree add ${worktreePath} -b ${branch} origin/${defaultBranch}`,
+      `cd /workspace/repo && if git rev-parse --verify origin/${branch} >/dev/null 2>&1; then
+        git worktree add ${worktreePath} origin/${branch} && cd ${worktreePath} && git checkout -B ${branch}
+      else
+        git worktree add ${worktreePath} -b ${branch} origin/${defaultBranch}
+      fi`,
     ).pipe(
       Effect.tap(() => activity("worktree.created", "Worktree ready", { worktreePath, branch })),
       Effect.mapError((e) => new SessionStartError({
