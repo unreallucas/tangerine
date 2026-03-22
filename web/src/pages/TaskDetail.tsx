@@ -23,7 +23,13 @@ export function TaskDetail() {
   const navigate = useNavigate()
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
-  const [visiblePanes, setVisiblePanes] = useState<Set<PaneId>>(new Set(["chat", "diff"]))
+  const [visiblePanes, setVisiblePanes] = useState<Set<PaneId>>(() => {
+    try {
+      const saved = localStorage.getItem(`tangerine:panes:${id}`)
+      if (saved) return new Set(JSON.parse(saved) as PaneId[])
+    } catch { /* ignore */ }
+    return new Set(["chat", "diff"])
+  })
   const [mobilePane, setMobilePane] = useState<PaneId>("chat")
 
   const { current, modelsByProvider } = useProject()
@@ -34,6 +40,7 @@ export function TaskDetail() {
   const [diffComments, setDiffComments] = useState<DiffComment[]>([])
 
   const [chatWidth, setChatWidth] = useState(480)
+  const [terminalWidth, setTerminalWidth] = useState(400)
   const [activityWidth, setActivityWidth] = useState(250)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -42,6 +49,12 @@ export function TaskDetail() {
   const chatResize = useResizable({
     onResize: useCallback((delta: number) => {
       setChatWidth((w) => Math.max(MIN_PANE, w + delta))
+    }, []),
+  })
+
+  const terminalResize = useResizable({
+    onResize: useCallback((delta: number) => {
+      setTerminalWidth((w) => Math.max(MIN_PANE, w - delta))
     }, []),
   })
 
@@ -58,9 +71,10 @@ export function TaskDetail() {
       if (next.has(pane)) next.delete(pane)
       else next.add(pane)
       if (next.size === 0) next.add("chat")
+      try { localStorage.setItem(`tangerine:panes:${id}`, JSON.stringify([...next])) } catch { /* ignore */ }
       return next
     })
-  }, [])
+  }, [id])
 
   const handleAddComment = useCallback((comment: DiffComment) => {
     setDiffComments((prev) => [...prev, comment])
@@ -317,11 +331,11 @@ export function TaskDetail() {
           )}
 
           {visiblePanes.has("terminal") && (visiblePanes.has("chat") || visiblePanes.has("diff")) && (
-            <ResizeHandle onMouseDown={activityResize.onMouseDown} />
+            <ResizeHandle onMouseDown={terminalResize.onMouseDown} />
           )}
 
           {visiblePanes.has("terminal") && (
-            <div className={`flex min-w-0 flex-col${desktopIsSolo ? " flex-1" : ""}`} style={desktopIsSolo ? undefined : { width: activityWidth, flexShrink: 0 }}>
+            <div className={`flex min-w-0 flex-col${desktopIsSolo ? " flex-1" : ""}`} style={desktopIsSolo ? undefined : { width: terminalWidth, flexShrink: 0 }}>
               <TerminalPane taskId={id!} />
             </div>
           )}
