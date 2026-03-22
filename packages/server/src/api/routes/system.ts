@@ -47,7 +47,8 @@ export function systemRoutes(deps: AppDeps): Hono {
       yield* deps.pool.destroyVm(vmId)
       const result = yield* deps.pool.reprovisionTasksForVm(vmId)
       if (result.reprovisioned > 0) {
-        yield* deps.pool.resumeOrphanedTasks()
+        // Fire-and-forget — daemons need to outlive the request
+        Effect.runPromise(deps.pool.resumeOrphanedTasks()).catch(() => {})
       }
       return result
     }))
