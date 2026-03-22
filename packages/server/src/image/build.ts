@@ -143,7 +143,7 @@ export async function runProjectSetup(
   sshPort: number,
   log: Logger,
 ): Promise<void> {
-  const markerFile = `/home/${VM_USER}/.tangerine-setup-done`;
+  const markerFile = "$HOME/.tangerine-setup-done";
 
   // Check if setup already ran
   try {
