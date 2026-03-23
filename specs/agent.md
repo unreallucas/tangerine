@@ -9,17 +9,27 @@ Multi-provider agent abstraction. OpenCode and Claude Code supported via `AgentP
 ```typescript
 type ProviderType = "opencode" | "claude-code"
 
-interface AgentEvent =
+type AgentEvent =
   | { kind: "message.streaming"; content: string; messageId?: string }
   | { kind: "message.complete"; role: "assistant" | "user"; content: string; messageId?: string }
   | { kind: "status"; status: "idle" | "working" }
   | { kind: "error"; message: string }
+  | { kind: "tool.start"; toolName: string; toolInput?: string }
+  | { kind: "tool.end"; toolName: string; toolResult?: string }
+  | { kind: "thinking"; content: string }
+
+interface AgentConfig {
+  model?: string
+  reasoningEffort?: string
+}
 
 interface AgentHandle {
   sendPrompt(text: string): Effect<void, PromptError>
   abort(): Effect<void, AgentError>
   subscribe(onEvent: (e: AgentEvent) => void): { unsubscribe(): void }
   shutdown(): Effect<void, never>
+  /** Hot-swap config without restart. Returns true if applied. Falls back to restart if not implemented. */
+  updateConfig?(config: AgentConfig): Effect<boolean, AgentError>
 }
 
 interface AgentStartContext {
@@ -29,6 +39,9 @@ interface AgentStartContext {
   workdir: string      // worktree path inside VM
   title: string
   previewPort: number
+  model?: string              // e.g. "claude-sonnet-4-6" or "anthropic/claude-sonnet-4-6"
+  reasoningEffort?: string    // "low" | "medium" | "high"
+  resumeSessionId?: string   // resume existing session (Claude Code --resume)
 }
 
 interface AgentFactory {
@@ -90,11 +103,24 @@ ssh -T -p <sshPort> root@<vmIp> \
 
 Claude Code stream-json events → `AgentEvent`:
 - `assistant` with text content → `message.streaming`
-- `assistant` with `tool_use` blocks → `status: working`
-- `user` (tool results) → `status: working`
+- `assistant` with `tool_use` blocks → `tool.start` (per tool) + `status: working`
+- `assistant` with `thinking` blocks → `thinking`
+- `user` (tool results) → `tool.end` (per tool) + `status: working`
 - `result` → `message.complete` (or `error` if `is_error`)
 - `stream_event` with `content_block_delta` → `message.streaming`
 - `system` with `subtype: init` → `status: working`
+
+### Session Resume
+
+When `resumeSessionId` is set in `AgentStartContext`, Claude Code is started with `--resume`:
+
+```bash
+claude --output-format stream-json --input-format stream-json \
+       --verbose --resume --session-id <existing-uuid> \
+       --dangerously-skip-permissions
+```
+
+Used for server restart recovery and model config changes (shutdown + restart with same session).
 
 ## Provider Selection
 
@@ -127,6 +153,14 @@ Pre-baked in golden image at `/root/.config/opencode/opencode.json`:
   }
 }
 ```
+
+## Model / Config Changes
+
+`POST /api/tasks/:id/model` changes model or reasoning effort for a running task:
+
+1. Try `handle.updateConfig()` (hot-swap — works for OpenCode)
+2. If not supported or fails → shutdown agent + restart with `--resume` and new config (Claude Code path)
+3. Update task record with new model/reasoning_effort
 
 ## Terminal Attach (OpenCode only)
 
