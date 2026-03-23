@@ -6,6 +6,7 @@ import { createLogger } from "../logger"
 import { SessionStartError } from "../errors"
 import type { TaskRow } from "../db/types"
 import type { ProjectVmRow } from "../vm/project-vm"
+import type { ProxyTunnel } from "../vm/tunnel"
 import { getHandleMeta } from "../agent/opencode-provider"
 
 const log = createLogger("lifecycle")
@@ -17,6 +18,7 @@ export interface SessionInfo {
   previewPort: number
   branch: string
   worktreePath: string
+  proxyTunnel: ProxyTunnel | null
 }
 
 export interface LifecycleDeps {
@@ -25,6 +27,7 @@ export interface LifecycleDeps {
   waitForSsh(host: string, port: number): Effect.Effect<void, import("../errors").SshTimeoutError>
   copyAuthJson(host: string, port: number, authJsonPath: string): Effect.Effect<void, import("../errors").SshError>
   injectCredentials(host: string, port: number, credentials: Record<string, string>): Effect.Effect<void, import("../errors").SshError>
+  createProxyTunnel(opts: { vmIp: string; sshPort: number; localPort: number }): Effect.Effect<ProxyTunnel, import("../errors").TunnelError>
   agentFactory: import("../agent/provider").AgentFactory
   updateTask(taskId: string, updates: Partial<TaskRow>): Effect.Effect<void, Error>
   logActivity(taskId: string, type: "lifecycle" | "system", event: string, content: string, metadata?: Record<string, unknown>): Effect.Effect<unknown, Error>
@@ -45,6 +48,9 @@ export interface CredentialConfig {
   githubToken: string | null
   gheToken: string | null
   ghHost: string
+  /** Local SOCKS proxy port for GHE access (e.g. 8080). When set, a reverse SSH tunnel
+   *  forwards this port into the VM so git/gh can reach the enterprise host. */
+  proxyPort: number | null
 }
 
 export function startSession(
@@ -175,6 +181,51 @@ export function startSession(
           cause: e,
         }))
       )
+    }
+
+    // 3b. Start reverse proxy tunnel for GHE access (if configured)
+    let proxyTunnel: ProxyTunnel | null = null
+    if (creds.proxyPort && creds.ghHost !== "github.com") {
+      yield* activity("proxy.starting", `Starting reverse proxy tunnel on port ${creds.proxyPort}`)
+      proxyTunnel = yield* deps.createProxyTunnel({
+        vmIp: vm.ip!,
+        sshPort: vm.ssh_port!,
+        localPort: creds.proxyPort,
+      }).pipe(
+        Effect.mapError((e) => new SessionStartError({
+          message: `Proxy tunnel failed: ${e.message}`,
+          taskId: task.id,
+          phase: "proxy-tunnel",
+          cause: e,
+        }))
+      )
+
+      // Set git proxy for the enterprise host and inject env vars
+      const proxyUrl = `socks5://127.0.0.1:${creds.proxyPort}`
+      yield* deps.sshExec(vm.ip!, vm.ssh_port!,
+        `git config --global http.https://${creds.ghHost}/.proxy ${proxyUrl}`
+      ).pipe(
+        Effect.mapError((e) => new SessionStartError({
+          message: `Git proxy config failed: ${e.message}`,
+          taskId: task.id,
+          phase: "proxy-tunnel",
+          cause: e,
+        }))
+      )
+
+      // Inject proxy env vars so gh CLI and other tools can reach GHE
+      yield* deps.injectCredentials(vm.ip!, vm.ssh_port!, {
+        HTTPS_PROXY: proxyUrl,
+        HTTP_PROXY: proxyUrl,
+      }).pipe(
+        Effect.mapError((e) => new SessionStartError({
+          message: `Proxy env injection failed: ${e.message}`,
+          taskId: task.id,
+          phase: "proxy-tunnel",
+          cause: e,
+        }))
+      )
+      yield* activity("proxy.ready", "Proxy tunnel established")
     }
 
     // 4. Clone or fetch the repository
@@ -308,6 +359,7 @@ export function startSession(
       previewPort,
       branch,
       worktreePath,
+      proxyTunnel,
     }
   })
 }
@@ -398,6 +450,35 @@ export function reconnectSession(
       ).pipe(Effect.catchAll(() => Effect.void))
     }
 
+    // 3b. Re-establish reverse proxy tunnel for GHE access (if configured)
+    let proxyTunnel: ProxyTunnel | null = null
+    if (creds.proxyPort && creds.ghHost !== "github.com") {
+      proxyTunnel = yield* deps.createProxyTunnel({
+        vmIp: vm.ip!,
+        sshPort: vm.ssh_port!,
+        localPort: creds.proxyPort,
+      }).pipe(
+        Effect.mapError((e) => new SessionStartError({
+          message: `Proxy tunnel failed: ${e.message}`,
+          taskId: task.id,
+          phase: "proxy-tunnel",
+          cause: e,
+        }))
+      )
+
+      const proxyUrl = `socks5://127.0.0.1:${creds.proxyPort}`
+      yield* deps.sshExec(vm.ip!, vm.ssh_port!,
+        `git config --global http.https://${creds.ghHost}/.proxy ${proxyUrl}`
+      ).pipe(Effect.catchAll(() => Effect.void))
+
+      yield* deps.injectCredentials(vm.ip!, vm.ssh_port!, {
+        HTTPS_PROXY: proxyUrl,
+        HTTP_PROXY: proxyUrl,
+      }).pipe(Effect.catchAll(() => Effect.void))
+
+      yield* activity("proxy.ready", "Proxy tunnel re-established")
+    }
+
     // 4. Kill any lingering agent process in the worktree
     yield* deps.sshExec(vm.ip!, vm.ssh_port!,
       `pkill -f "claude.*${worktreePath}" 2>/dev/null; pkill -f "opencode.*${worktreePath}" 2>/dev/null; true`
@@ -448,6 +529,7 @@ export function reconnectSession(
       previewPort,
       branch,
       worktreePath,
+      proxyTunnel,
     }
   })
 }

@@ -20,7 +20,8 @@ import type { CleanupDeps } from "../tasks/cleanup"
 import { startOrphanCleanup, findOrphans, cleanupOrphans } from "../tasks/orphan-cleanup"
 import type { OrphanCleanupDeps } from "../tasks/orphan-cleanup"
 import { sshExec, waitForSsh } from "../vm/ssh"
-import { createTunnel } from "../vm/tunnel"
+import { createTunnel, createProxyTunnel } from "../vm/tunnel"
+import type { ProxyTunnel } from "../vm/tunnel"
 import { createProvider } from "../vm/providers/index"
 import type { ProviderType as VmProviderType } from "../vm/providers/index"
 import { SshError, AgentError, PromptError } from "../errors"
@@ -48,6 +49,8 @@ function classifyTool(toolName: string): { activityType: "file" | "system"; acti
 
 // In-memory map of taskId → active AgentHandle (for cleanup and abort)
 const agentHandles = new Map<string, AgentHandle>()
+// In-memory map of taskId → active proxy tunnel (for cleanup)
+const proxyTunnels = new Map<string, ProxyTunnel>()
 
 export async function start(): Promise<void> {
   const startSpan = log.startOp("server-start")
@@ -126,6 +129,7 @@ export async function start(): Promise<void> {
           return { ip: vm.ip, sshPort: vm.ssh_port, status: vm.status }
         }),
       getAgentHandle: (taskId) => agentHandles.get(taskId) ?? null,
+      getProxyTunnel: (taskId) => proxyTunnels.get(taskId) ?? null,
     }
 
     const tmDeps: TaskManagerDeps = {
@@ -169,6 +173,7 @@ export async function start(): Promise<void> {
             .join("\n")
           return sshExec(host, port, `printf '%s\\n' '${envLines}' >> ~/.env`).pipe(Effect.asVoid)
         },
+        createProxyTunnel: (opts) => createProxyTunnel(opts),
         // Agent factory is set dynamically per task in retryDeps.onSessionReady
         // Default to opencode — overridden by the retry wrapper
         agentFactory: openCodeFactory,
@@ -182,6 +187,10 @@ export async function start(): Promise<void> {
         onSessionReady: (taskId, session) => {
           // Store handle for cleanup/abort
           agentHandles.set(taskId, session.agentHandle)
+          // Store proxy tunnel for cleanup
+          if (session.proxyTunnel) {
+            proxyTunnels.set(taskId, session.proxyTunnel)
+          }
 
           // Send initial prompt immediately for new tasks (no existing logs).
           // Don't wait for idle event — it may have already fired before we subscribe.

@@ -53,6 +53,7 @@ export interface AppConfig {
     githubToken: string | null
     gheToken: string | null
     ghHost: string
+    proxyPort: number | null
   }
 }
 
@@ -62,6 +63,7 @@ export const ALLOWED_CREDENTIAL_KEYS = [
   "GITHUB_TOKEN",
   "GH_ENTERPRISE_TOKEN",
   "GH_HOST",
+  "PROXY_PORT",
 ] as const
 
 export type CredentialKey = (typeof ALLOWED_CREDENTIAL_KEYS)[number]
@@ -156,6 +158,9 @@ export function loadConfig(): AppConfig {
     )
   }
 
+  const proxyPortRaw = process.env["PROXY_PORT"] ?? dotfile.PROXY_PORT
+  const proxyPort = proxyPortRaw ? parseInt(proxyPortRaw, 10) : null
+
   return {
     config,
     credentials: {
@@ -165,6 +170,7 @@ export function loadConfig(): AppConfig {
       githubToken: process.env["GITHUB_TOKEN"] ?? dotfile.GITHUB_TOKEN ?? null,
       gheToken: process.env["GH_ENTERPRISE_TOKEN"] ?? dotfile.GH_ENTERPRISE_TOKEN ?? null,
       ghHost: process.env["GH_HOST"] ?? dotfile.GH_HOST ?? "github.com",
+      proxyPort: proxyPort && !isNaN(proxyPort) ? proxyPort : null,
     },
   }
 }

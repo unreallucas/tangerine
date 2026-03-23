@@ -78,6 +78,79 @@ export function createTunnel(opts: {
   });
 }
 
+export interface ProxyTunnel {
+  vmIp: string;
+  sshPort: number;
+  remotePort: number;
+  process: Subprocess;
+}
+
+/** Persistent reverse tunnel: forwards a host port into the VM via SSH -R.
+ *  Used to give the VM access to a local SOCKS proxy for GHE. */
+export function createProxyTunnel(opts: {
+  vmIp: string;
+  sshPort: number;
+  localPort: number;
+  user?: string;
+}): Effect.Effect<ProxyTunnel, TunnelError> {
+  return Effect.tryPromise({
+    try: async () => {
+      const user = opts.user ?? VM_USER;
+
+      const args = [
+        "ssh",
+        "-N",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "BatchMode=yes",
+        "-o", "LogLevel=ERROR",
+        "-o", "ExitOnForwardFailure=yes",
+        "-p", String(opts.sshPort),
+        "-R", `${opts.localPort}:127.0.0.1:${opts.localPort}`,
+        `${user}@${opts.vmIp}`,
+      ];
+
+      const process = Bun.spawn(args, {
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "pipe",
+      });
+
+      const settled = await Promise.race([
+        new Promise<"exited">((resolve) => {
+          process.exited.then(() => resolve("exited"));
+        }),
+        new Promise<"ok">((resolve) => {
+          setTimeout(() => resolve("ok"), 2_000);
+        }),
+      ]);
+
+      if (settled === "exited") {
+        const stderr = await new Response(process.stderr).text();
+        throw new Error(`Proxy tunnel exited immediately: ${stderr}`);
+      }
+
+      return {
+        vmIp: opts.vmIp,
+        sshPort: opts.sshPort,
+        remotePort: opts.localPort,
+        process,
+      };
+    },
+    catch: (e) => new TunnelError({ message: `Proxy tunnel creation failed: ${e}`, vmIp: opts.vmIp, cause: e }),
+  });
+}
+
+export function destroyProxyTunnel(tunnel: ProxyTunnel): Effect.Effect<void, never> {
+  return Effect.sync(() => {
+    try {
+      tunnel.process.kill();
+    } catch {
+      // Process may already be dead
+    }
+  });
+}
+
 export function destroyTunnel(tunnel: SessionTunnel): Effect.Effect<void, never> {
   return Effect.sync(() => {
     try {

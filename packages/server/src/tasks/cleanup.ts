@@ -5,6 +5,7 @@ import { Effect } from "effect"
 import { createLogger } from "../logger"
 import { SessionCleanupError } from "../errors"
 import type { TaskRow } from "../db/types"
+import type { ProxyTunnel } from "../vm/tunnel"
 
 const log = createLogger("cleanup")
 
@@ -16,6 +17,7 @@ export interface CleanupDeps {
   updateTask(taskId: string, updates: Partial<TaskRow>): Effect.Effect<unknown, Error>
   getVmForTask(taskId: string): Effect.Effect<{ ip: string; sshPort: number; status: string } | null, Error>
   getAgentHandle(taskId: string): import("../agent/provider").AgentHandle | null
+  getProxyTunnel(taskId: string): ProxyTunnel | null
 }
 
 export function cleanupSession(
@@ -58,6 +60,15 @@ export function cleanupSession(
         Effect.tap(() => Effect.sync(() => taskLog.info("Agent shutdown"))),
         Effect.ignoreLogged,
       )
+    }
+
+    // 2b. Kill proxy tunnel (reverse SSH for SOCKS proxy)
+    const proxyTunnel = deps.getProxyTunnel(taskId)
+    if (proxyTunnel) {
+      Effect.runSync(Effect.sync(() => {
+        try { proxyTunnel.process.kill() } catch { /* already dead */ }
+      }))
+      taskLog.debug("Proxy tunnel killed")
     }
 
     // 3. Remove worktree from VM (best-effort)
