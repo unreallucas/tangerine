@@ -176,28 +176,31 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
       // Slash command picker keys
       const slash = slashStateRef.current
       if (slash.isOpen) {
-        if (e.key === "Escape") {
-          e.preventDefault()
-          closeSlash()
-          return
-        }
-        if (e.key === "ArrowDown") {
-          e.preventDefault()
-          setSlashState((s) => ({ ...s, selectedIndex: Math.min(s.selectedIndex + 1, skillsRef.current.filter((sk) => sk.toLowerCase().includes(s.query.toLowerCase())).slice(0, 8).length - 1) }))
-          return
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault()
-          setSlashState((s) => ({ ...s, selectedIndex: Math.max(s.selectedIndex - 1, 0) }))
-          return
-        }
-        if (e.key === "Enter" || e.key === "Tab") {
-          const filtered = skillsRef.current.filter((sk) => sk.toLowerCase().includes(slash.query.toLowerCase())).slice(0, 8)
-          const skill = filtered[slash.selectedIndex]
-          if (skill) {
+        const filtered = skillsRef.current.filter((sk) => sk.toLowerCase().includes(slash.query.toLowerCase())).slice(0, 8)
+        // Only intercept navigation/selection keys when the picker is actually visible
+        if (filtered.length > 0) {
+          if (e.key === "Escape") {
             e.preventDefault()
-            selectSkill(skill)
+            closeSlash()
             return
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault()
+            setSlashState((s) => ({ ...s, selectedIndex: Math.min(s.selectedIndex + 1, filtered.length - 1) }))
+            return
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault()
+            setSlashState((s) => ({ ...s, selectedIndex: Math.max(s.selectedIndex - 1, 0) }))
+            return
+          }
+          if (e.key === "Enter" || e.key === "Tab") {
+            const skill = filtered[slash.selectedIndex]
+            if (skill) {
+              e.preventDefault()
+              selectSkill(skill)
+              return
+            }
           }
         }
       }
@@ -406,7 +409,7 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
                 if (ch === "/") {
                   if (si === 0 || val[si - 1] === " " || val[si - 1] === "\n") {
                     const query = val.slice(si + 1, cursor)
-                    if (!query.includes(" ") && !query.includes("\n") && skillsRef.current.length > 0) {
+                    if (!query.includes(" ") && !query.includes("\n")) {
                       setSlashState({ isOpen: true, query, selectedIndex: 0, triggerStart: si })
                     } else {
                       closeSlash()
