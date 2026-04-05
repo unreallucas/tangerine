@@ -52,6 +52,16 @@ function classifyTool(toolName: string): { activityType: "file" | "system"; acti
   }
 }
 
+export async function applySystemPromptIfSupported(handle: AgentHandle, notes: string[], alreadyApplied = false): Promise<boolean> {
+  if (alreadyApplied) return true
+  if (!handle.setSystemPrompt || notes.length === 0) return false
+  try {
+    return await Effect.runPromise(handle.setSystemPrompt(notes.join("\n")))
+  } catch {
+    return false
+  }
+}
+
 /**
  * Try to save a detected PR URL for a task — checks "pr-create" capability,
  * verifies branch match, then persists to DB and emits activity. No-op if the
@@ -296,8 +306,15 @@ export async function start(): Promise<void> {
 
           // Hydrate in-memory tracking from DB (lost on restart)
           const taskMeta = db.prepare("SELECT pr_url FROM tasks WHERE id = ?").get(taskId) as { pr_url: string | null } | null
+          const s = getTaskState(taskId)
+          const taskRow = db.prepare("SELECT project_id, type FROM tasks WHERE id = ?").get(taskId) as { project_id: string | null; type: string | null } | null
+          const projConfig = taskRow?.project_id ? getProjectConfig(config.config, taskRow.project_id) : undefined
+          s.systemPromptApplied = buildSystemNotes(taskId, {
+            setupCommand: projConfig?.setup,
+            taskType: taskRow?.type ?? undefined,
+            prMode: projConfig?.prMode,
+          }).length > 0
           if (taskMeta?.pr_url) {
-            const s = getTaskState(taskId)
             s.prUrlSaved = true
             s.prNudgeSent = true
           }
@@ -413,7 +430,12 @@ export async function start(): Promise<void> {
                   }
                 }
 
-                const fullPrompt = notes.join("\n") + "\n\n" + initialPrompt + escalationBlock
+                const taskState = getTaskState(taskId)
+                const usedSystemPrompt = await applySystemPromptIfSupported(session.agentHandle, notes, taskState.systemPromptApplied)
+                taskState.systemPromptApplied = usedSystemPrompt
+                const fullPrompt = usedSystemPrompt || notes.length === 0
+                  ? initialPrompt + escalationBlock
+                  : notes.join("\n") + "\n\n" + initialPrompt + escalationBlock
 
                 await Effect.runPromise(
                   session.agentHandle.sendPrompt(fullPrompt, images).pipe(Effect.catchAll(() => Effect.void))
@@ -763,7 +785,14 @@ export async function start(): Promise<void> {
                 prMode: projConfig?.prMode,
               })
 
-              if (notes.length > 0) {
+              const taskState = getTaskState(taskId)
+              const handle = agentHandles.get(taskId)
+              const usedSystemPrompt = handle
+                ? yield* Effect.promise(() => applySystemPromptIfSupported(handle, notes, taskState.systemPromptApplied))
+                : taskState.systemPromptApplied
+              taskState.systemPromptApplied = usedSystemPrompt
+
+              if (notes.length > 0 && !taskState.systemPromptApplied) {
                 promptText = notes.join("\n") + "\n\n" + text
               }
             }
