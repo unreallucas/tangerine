@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from "bun:test"
 import { Effect } from "effect"
 import type { Database } from "bun:sqlite"
 import { createTestDb } from "./helpers"
-import { extractPrUrl, extractGithubSlug, pollPrStatuses } from "../tasks/pr-monitor"
+import { extractPrUrl, extractGithubSlug, getPrLookupTargets, pollPrStatuses } from "../tasks/pr-monitor"
 import type { PrMonitorDeps, PrState } from "../tasks/pr-monitor"
 import type { TaskRow } from "../db/types"
 import { buildSystemNotes } from "../tasks/prompts"
@@ -92,6 +92,23 @@ describe("extractGithubSlug", () => {
 
   test("handles GHE SSH remote URL", () => {
     expect(extractGithubSlug("git@github.example.com:owner/repo.git")).toBe("owner/repo")
+  })
+})
+
+describe("getPrLookupTargets", () => {
+  test("uses repo itself when not a fork", () => {
+    expect(getPrLookupTargets("user/repo", { nameWithOwner: "user/repo", isFork: false, parent: null })).toEqual([{ repoSlug: "user/repo" }])
+  })
+
+  test("checks upstream first for forks and constrains owner", () => {
+    expect(getPrLookupTargets("user/repo", { nameWithOwner: "user/repo", isFork: true, parent: { nameWithOwner: "upstream/repo" } })).toEqual([
+      { repoSlug: "upstream/repo", expectedHeadOwner: "user" },
+      { repoSlug: "user/repo" },
+    ])
+  })
+
+  test("falls back to repo when fork parent missing", () => {
+    expect(getPrLookupTargets("user/repo", { nameWithOwner: "user/repo", isFork: true, parent: null })).toEqual([{ repoSlug: "user/repo" }])
   })
 })
 
