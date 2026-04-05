@@ -15,6 +15,18 @@ import { ghSpawnEnv, extractPrUrl, extractGithubSlug } from "../gh"
 
 export { extractPrUrl, extractGithubSlug }
 
+interface RepoViewResult {
+  nameWithOwner?: string
+  isFork?: boolean
+  parent?: { nameWithOwner?: string | null } | null
+}
+
+interface PrListItem {
+  url?: string
+  headRefName?: string
+  headRepositoryOwner?: { login?: string | null } | null
+}
+
 const log = createLogger("pr-monitor")
 
 const PR_POLL_INTERVAL_MS = 60_000
@@ -65,33 +77,94 @@ export function verifyPrBranch(prUrl: string, expectedBranch: string): Effect.Ef
   }).pipe(Effect.catchAll(() => Effect.succeed(false)))
 }
 
+export interface PrLookupTarget {
+  repoSlug: string
+  expectedHeadOwner?: string
+}
+
+function getRepoOwner(repoSlug: string): string | null {
+  return repoSlug.split("/")[0] ?? null
+}
+
+/** Build PR lookup order. For forks, search parent first but constrain head owner to the fork owner. */
+export function getPrLookupTargets(repoSlug: string, repoView?: RepoViewResult | null): PrLookupTarget[] {
+  const repoOwner = getRepoOwner(repoSlug)
+  const parentSlug = repoView?.isFork ? (repoView.parent?.nameWithOwner ?? null) : null
+  return parentSlug && parentSlug !== repoSlug
+    ? [{ repoSlug: parentSlug, expectedHeadOwner: repoOwner ?? undefined }, { repoSlug }]
+    : [{ repoSlug }]
+}
+
+async function getRepoView(repoSlug: string): Promise<RepoViewResult | null> {
+  const proc = Bun.spawn(
+    ["gh", "repo", "view", repoSlug, "--json", "nameWithOwner,isFork,parent"],
+    ghSpawnEnv(),
+  )
+  const [text, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ])
+  const exitCode = await proc.exited
+  if (exitCode !== 0) {
+    log.warn("gh repo view failed in lookupPrByBranch", { repoSlug, exitCode, stderr: stderr.trim() })
+    return null
+  }
+
+  try {
+    return JSON.parse(text) as RepoViewResult
+  } catch (error) {
+    log.warn("Failed to parse gh repo view output in lookupPrByBranch", { repoSlug, error: String(error) })
+    return null
+  }
+}
+
+async function listPrUrl(repoSlug: string, branch: string, expectedHeadOwner?: string): Promise<string | null> {
+  const proc = Bun.spawn(
+    ["gh", "pr", "list", "--head", branch, "--repo", repoSlug, "--json", "url,headRefName,headRepositoryOwner"],
+    ghSpawnEnv(),
+  )
+  const [text, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ])
+  const exitCode = await proc.exited
+  if (exitCode !== 0) {
+    log.warn("gh pr list failed in lookupPrByBranch", { branch, repoSlug, expectedHeadOwner, exitCode, stderr: stderr.trim() })
+    return null
+  }
+
+  try {
+    const prs = JSON.parse(text) as PrListItem[]
+    const match = prs.find((pr) => {
+      if (pr.headRefName !== branch) return false
+      if (!expectedHeadOwner) return true
+      return pr.headRepositoryOwner?.login === expectedHeadOwner
+    })
+    return match?.url?.startsWith("https://") ? match.url : null
+  } catch (error) {
+    log.warn("Failed to parse gh pr list output in lookupPrByBranch", { branch, repoSlug, expectedHeadOwner, error: String(error) })
+    return null
+  }
+}
+
 /**
  * Look up an open PR for a branch on GitHub. Returns the PR URL if found, null otherwise.
- * Uses `gh pr list --head <branch> --repo <owner/repo>`.
+ * For forks, search the upstream repo first since PRs usually target upstream.
  */
 export function lookupPrByBranch(repoUrl: string, branch: string): Effect.Effect<string | null, never> {
-  const slug = extractGithubSlug(repoUrl)
-  if (!slug) return Effect.succeed(null)
+  const repoSlug = extractGithubSlug(repoUrl)
+  if (!repoSlug) return Effect.succeed(null)
 
   return Effect.tryPromise({
     try: async () => {
-      const proc = Bun.spawn(
-        ["gh", "pr", "list", "--head", branch, "--repo", slug, "--json", "url", "--jq", ".[0].url"],
-        ghSpawnEnv(),
-      )
-      const [text, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-      ])
-      const exitCode = await proc.exited
-      if (exitCode !== 0) {
-        log.warn("gh pr list failed in lookupPrByBranch", { branch, slug, exitCode, stderr: stderr.trim() })
-        return null
+      const repoView = await getRepoView(repoSlug)
+      for (const target of getPrLookupTargets(repoSlug, repoView)) {
+        const prUrl = await listPrUrl(target.repoSlug, branch, target.expectedHeadOwner)
+        if (prUrl) return prUrl
       }
-      const url = text.trim()
-      return url.startsWith("https://") ? url : null
+      return null
     },
-    catch: (err) => { log.warn("lookupPrByBranch threw", { branch, slug, error: String(err) }); return null },
+    catch: (err) => { log.warn("lookupPrByBranch threw", { branch, repoSlug, error: String(err) }); return null },
   }).pipe(Effect.catchAll(() => Effect.succeed(null)))
 }
 
