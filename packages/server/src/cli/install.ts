@@ -1,13 +1,10 @@
 // CLI entrypoint: one-time setup for Tangerine.
-// Checks system deps, creates directories, symlinks agent skills.
+// Checks system deps, creates directories, and symlinks agent skills.
 
 import { existsSync, lstatSync, mkdirSync, rmSync, symlinkSync, readlinkSync } from "fs"
 import { join, resolve } from "path"
-import { homedir } from "os"
 import { TANGERINE_HOME, OPENCODE_AUTH_PATH, readCredentialsFile, readClaudeCliToken } from "../config"
-
-const CLAUDE_SKILLS_DIR = join(homedir(), ".claude", "skills")
-const CODEX_SKILLS_DIR = join(homedir(), ".codex", "skills")
+import { AGENT_PROVIDER_METADATA } from "../agent/metadata"
 
 // Resolve project root relative to this file:
 // packages/server/src/cli/install.ts → 4 levels up
@@ -37,7 +34,7 @@ function ensureDir(dir: string): void {
   mkdirSync(dir, { recursive: true })
 }
 
-function symlinkSkill(
+export function symlinkSkill(
   skillSource: string,
   targetDir: string,
 ): { created: boolean; skipped: string | null } {
@@ -80,37 +77,24 @@ export async function install(): Promise<void> {
   ensureDir(TANGERINE_HOME)
   check(`${TANGERINE_HOME}`, true)
 
-  // 2. Claude Code skills
-  console.log("\nClaude Code skills:")
-  for (const skill of SKILLS_TO_INSTALL) {
-    if (!existsSync(skill.source)) {
-      check(`${skill.name} skill`, false, `skill source not found at ${skill.source}`)
-    } else {
-      const result = symlinkSkill(skill.source, CLAUDE_SKILLS_DIR)
+  for (const metadata of Object.values(AGENT_PROVIDER_METADATA)) {
+    const targetDir = metadata.skills.directory
+    console.log(`\n${metadata.displayName} skills:`)
+    for (const skill of SKILLS_TO_INSTALL) {
+      if (!existsSync(skill.source)) {
+        check(`${skill.name} skill`, false, `skill source not found at ${skill.source}`)
+        continue
+      }
+      const result = symlinkSkill(skill.source, targetDir)
       if (result.created) {
-        check(`${skill.name} skill → ${CLAUDE_SKILLS_DIR}/${skill.name}`, true)
+        check(`${skill.name} skill → ${targetDir}/${skill.name}`, true)
       } else {
         check(`${skill.name} skill (${result.skipped})`, true)
       }
     }
   }
 
-  // 3. Codex skills (same set, different target directory)
-  console.log("\nCodex skills:")
-  for (const skill of SKILLS_TO_INSTALL) {
-    if (!existsSync(skill.source)) {
-      check(`${skill.name} skill`, false, `skill source not found at ${skill.source}`)
-    } else {
-      const result = symlinkSkill(skill.source, CODEX_SKILLS_DIR)
-      if (result.created) {
-        check(`${skill.name} skill → ${CODEX_SKILLS_DIR}/${skill.name}`, true)
-      } else {
-        check(`${skill.name} skill (${result.skipped})`, true)
-      }
-    }
-  }
-
-  // 4. Credentials (env vars override dotfile)
+  // 3. Credentials (env vars override dotfile)
   console.log("\nCredentials:")
   const dotfile = readCredentialsFile()
   const hasOpencode = existsSync(OPENCODE_AUTH_PATH)

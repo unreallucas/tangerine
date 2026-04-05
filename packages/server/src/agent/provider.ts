@@ -3,11 +3,9 @@
 
 import type { Effect } from "effect"
 import type { AgentError, PromptError, SessionStartError } from "../errors"
-import type { PromptImage } from "@tangerine/shared"
+import type { PromptImage, ProviderType } from "@tangerine/shared"
 
-export type { PromptImage }
-
-export type ProviderType = "opencode" | "claude-code" | "codex" | "pi"
+export type { PromptImage, ProviderType }
 
 /** A model available through a provider, used for model discovery and selection */
 export interface ModelInfo {
@@ -31,6 +29,13 @@ export type AgentEvent =
 export interface AgentConfig {
   model?: string
   reasoningEffort?: string
+}
+
+export interface ProviderMetadata {
+  displayName: string
+  skills: {
+    directory: string
+  }
 }
 
 /** Handle to a running agent session — owns the process, tunnel, and event subscription */
@@ -77,5 +82,6 @@ export interface AgentStartContext {
 
 /** Factory that creates agent sessions — one implementation per provider */
 export interface AgentFactory {
+  metadata: ProviderMetadata
   start(ctx: AgentStartContext): Effect.Effect<AgentHandle, SessionStartError>
 }

@@ -117,6 +117,8 @@ Notable task fields in the active schema:
 
 All providers implement the shared contract in `agent/provider.ts`, emit normalized events, and support prompt delivery plus shutdown. OpenCode exposes a richer live update path; Claude Code, Codex, and Pi use subprocess streams. Pi uses its own RPC protocol over stdin/stdout NDJSON.
 
+Provider identity is centralized in `@tangerine/shared` via `SUPPORTED_PROVIDERS`, with `DEFAULT_PROVIDER` as the shared fallback. Each provider module owns its metadata, and the server aggregates that metadata for both provider factories and CLI flows such as skill installation.
+
 ### Task Management
 
 - `tasks/manager.ts` handles task creation, type-based capabilities, retries, completion, cancellation, config changes, orchestrator creation, and restart recovery.

@@ -5,9 +5,10 @@
 // completing the turn; the next prompt re-invokes with the same session ID.
 
 import { Effect } from "effect"
+import { PROVIDER_DISPLAY_NAMES } from "@tangerine/shared"
 import { createLogger, truncate } from "../logger"
 import { AgentError, PromptError, SessionStartError } from "../errors"
-import type { AgentFactory, AgentHandle, AgentEvent, AgentStartContext, PromptImage, ModelInfo } from "./provider"
+import type { AgentFactory, AgentHandle, AgentEvent, AgentStartContext, PromptImage, ModelInfo, ProviderMetadata } from "./provider"
 import { parseNdjsonStream } from "./ndjson"
 import { existsSync, readFileSync, unlinkSync } from "node:fs"
 import { homedir } from "node:os"
@@ -15,6 +16,12 @@ import { join } from "node:path"
 import { scanClaudeSkills } from "./skill-scanner"
 
 const log = createLogger("opencode-provider")
+export const OPENCODE_PROVIDER_METADATA: ProviderMetadata = {
+  displayName: PROVIDER_DISPLAY_NAMES.opencode,
+  skills: {
+    directory: join(homedir(), ".claude", "skills"),
+  },
+}
 
 // -- OpenCode permission config ------------------------------------------------
 // OpenCode's permission system blocks tools accessing paths outside the project dir
@@ -363,6 +370,7 @@ export function adaptRunJsonEvent(raw: Record<string, unknown>): Record<string, 
 
 export function createOpenCodeProvider(): AgentFactory {
   return {
+    metadata: OPENCODE_PROVIDER_METADATA,
     start(ctx: AgentStartContext): Effect.Effect<AgentHandle, SessionStartError> {
       const taskLog = log.child({ taskId: ctx.taskId })
 
