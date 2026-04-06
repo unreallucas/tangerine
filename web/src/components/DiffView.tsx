@@ -1,4 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from "react"
+import { useState, useMemo, useRef, useEffect, useCallback } from "react"
+import { prepareWithSegments } from "@chenglou/pretext"
+import type { PreparedTextWithSegments } from "@chenglou/pretext"
 import { copyToClipboard } from "../lib/clipboard"
 import type { DiffFile } from "../lib/api"
 import type { DiffComment } from "./ChangesPanel"
@@ -27,6 +29,88 @@ export function fileName(path: string): string {
 export function fileDir(path: string): string {
   const parts = path.split("/")
   return parts.length > 1 ? parts.slice(0, -1).join("/") : ""
+}
+
+// Access pretext's internal per-segment widths (branded type hides them)
+type PreparedInternals = PreparedTextWithSegments & { widths: number[] }
+
+// Prepare once, then walk segment widths to find the truncation point — no repeated measurement
+function middleTruncate(path: string, font: string, maxWidth: number): string {
+  const prepared = prepareWithSegments(path, font) as PreparedInternals
+  const { segments, widths } = prepared
+  const totalWidth = widths.reduce((a, b) => a + b, 0)
+  if (totalWidth <= maxWidth) return path
+
+  const ellipsis = "\u2026"
+  const ellipsisW = (prepareWithSegments(ellipsis, font) as PreparedInternals).widths[0] ?? 0
+  const available = maxWidth - ellipsisW
+  if (available <= 0) return ellipsis
+
+  // Find where the filename starts in the segment list
+  const name = fileName(path)
+  const dirLen = path.length - name.length
+  let charCount = 0
+  let nameStartSeg = segments.length
+  for (let i = 0; i < segments.length; i++) {
+    if (charCount >= dirLen) { nameStartSeg = i; break }
+    charCount += segments[i]!.length
+  }
+
+  const nameW = widths.slice(nameStartSeg).reduce((a, b) => a + b, 0)
+
+  if (nameW >= available) {
+    // Filename alone overflows — walk segments from the end
+    let w = 0
+    for (let i = segments.length - 1; i >= nameStartSeg; i--) {
+      w += widths[i]!
+      if (w > available) {
+        const kept = segments.slice(i + 1).join("")
+        return kept ? ellipsis + kept : ellipsis
+      }
+    }
+    return ellipsis + name
+  }
+
+  // Walk dir segments forward until we exceed budget
+  const dirBudget = available - nameW
+  let w = 0
+  for (let i = 0; i < nameStartSeg; i++) {
+    w += widths[i]!
+    if (w > dirBudget) {
+      const kept = segments.slice(0, i).join("")
+      return (kept || "") + ellipsis + name
+    }
+  }
+  return path
+}
+
+function MiddleTruncatedPath({ path, className }: { path: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [display, setDisplay] = useState(path)
+
+  const recompute = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const w = el.clientWidth
+    if (w <= 0) { setDisplay(path); return }
+    const style = getComputedStyle(el)
+    const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    setDisplay(middleTruncate(path, font, w))
+  }, [path])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new ResizeObserver(recompute)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [recompute])
+
+  return (
+    <span ref={ref} className={className} title={path} style={{ display: "block", overflow: "hidden", whiteSpace: "nowrap", textAlign: "left" }}>
+      {display}
+    </span>
+  )
 }
 
 function parseSplitLines(diff: string): SplitLine[] {
@@ -417,9 +501,7 @@ function FileSection({ file, onAddComment }: { file: DiffFile; onAddComment?: (c
             <svg className="h-3.5 w-3.5 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
-            <span className="min-w-0 truncate font-mono text-md font-medium text-fg" style={{ direction: "rtl", unicodeBidi: "plaintext" }}>
-              {file.path}
-            </span>
+            <MiddleTruncatedPath path={file.path} className="min-w-0 flex-1 font-mono text-md font-medium text-fg" />
           </button>
           <button
             onClick={() => { copyToClipboard(file.path).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }).catch(() => {}) }}
