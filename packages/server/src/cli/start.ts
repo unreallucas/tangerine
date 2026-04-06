@@ -62,6 +62,15 @@ export async function applySystemPromptIfSupported(handle: AgentHandle, notes: s
   }
 }
 
+export function subscribeBeforePrompt(
+  handle: AgentHandle,
+  onEvent: Parameters<AgentHandle["subscribe"]>[0],
+  send: () => void,
+): void {
+  handle.subscribe(onEvent)
+  send()
+}
+
 /**
  * Try to save a detected PR URL for a task — checks "pr-create" capability,
  * verifies branch match, then persists to DB and emits activity. No-op if the
@@ -319,162 +328,7 @@ export async function start(): Promise<void> {
             s.prNudgeSent = true
           }
 
-          // Send initial prompt for new tasks, or reconnect nudge for existing ones.
-          // Key distinction: if the agent never responded (e.g. killed by rapid model
-          // change before processing the prompt), re-send the full initial prompt —
-          // a nudge won't work because the new session has no conversation context.
-          const hasLogs = db.prepare("SELECT 1 FROM session_logs WHERE task_id = ? LIMIT 1").get(taskId)
-          const hasAssistantResponse = hasLogs
-            ? db.prepare("SELECT 1 FROM session_logs WHERE task_id = ? AND role IN ('assistant', 'narration') LIMIT 1").get(taskId)
-            : null
-          const lastLog = hasLogs ? getLastConversationLog(db, taskId) : null
-          if (hasLogs && hasAssistantResponse && lastLog?.role === "user" && !getTaskState(taskId).idleWake) {
-            // Reconnect after server restart or model change — agent had conversation context.
-            // Skip for idle-wake: the user's new message is already queued via drainQueuedPrompts.
-            const sendReconnectNudge = async () => {
-              try {
-                // Wait for Claude Code to finish initializing before sending a prompt.
-                // Do NOT send abort/SIGINT here — Claude Code is idle after resume and
-                // SIGINT terminates an idle process rather than interrupting an in-progress turn,
-                // causing an immediate crash-restart loop.
-                await new Promise((r) => setTimeout(r, 1500))
-
-                const taskRow = db.prepare(
-                  "SELECT title, description, type, project_id FROM tasks WHERE id = ?"
-                ).get(taskId) as { title: string; description: string | null; type: string | null; project_id: string | null } | null
-
-                const originalTask = taskRow?.description || taskRow?.title || ""
-                const unansweredUserMsg = lastLog?.role === "user" ? lastLog.content : null
-                const reconnectProjConfig = taskRow?.project_id ? getProjectConfig(config.config, taskRow.project_id) : undefined
-
-                const nudgeParts = [
-                  `[TANGERINE: Server restarted. You are working on: ${originalTask}]`,
-                ]
-                if (taskRow?.type !== "reviewer" && reconnectProjConfig?.prMode !== "none") {
-                  nudgeParts.push(`[NOTE: When your work is complete: ${buildPrWorkflowNote(taskId, undefined, reconnectProjConfig?.prMode)}]`)
-                }
-                nudgeParts.push(
-                  unansweredUserMsg
-                    ? `The last message you had not yet responded to was: ${unansweredUserMsg}\n\nPlease continue.`
-                    : "Please continue where you left off.",
-                )
-                const nudge = nudgeParts.join("\n\n")
-
-                await Effect.runPromise(
-                  session.agentHandle.sendPrompt(nudge).pipe(Effect.catchAll(() => Effect.void))
-                )
-              } catch (err) {
-                log.error("Failed to send reconnect nudge", { taskId, error: String(err) })
-              }
-            }
-            sendReconnectNudge()
-            // Drain queued prompts for reconnect — agent already has conversation context
-            Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
-          } else if (!hasLogs || (hasLogs && !hasAssistantResponse)) {
-            // No logs at all (fresh task) or logs exist but agent never responded
-            // (e.g. killed by model change before processing prompt). Either way,
-            // send the full initial prompt — don't resume a nonexistent conversation.
-            // Queued prompts are drained AFTER the initial prompt so the agent gets
-            // its task description (including orchestrator system prompt) first.
-            const isRetry = !!hasLogs // User message already saved, just re-deliver prompt
-            const task = db.prepare("SELECT description, title, project_id, type FROM tasks WHERE id = ?").get(taskId) as { description: string | null; title: string; project_id: string; type: string | null } | null
-            const initialPrompt = task?.description || task?.title
-            if (initialPrompt) {
-              // Load initial images saved during task creation (if any)
-              const loadInitialImages = async () => {
-                if (isRetry) return { images: undefined, filenames: undefined } // images already saved
-                const manifestPath = `${TANGERINE_HOME}/images/${taskId}/initial.json`
-                const file = Bun.file(manifestPath)
-                if (!(await file.exists())) return { images: undefined, filenames: undefined }
-                try {
-                  const manifest = JSON.parse(await file.text()) as Array<{ filename: string; mediaType: string }>
-                  if (!manifest.length) return { images: undefined, filenames: undefined }
-                  const images: import("../agent/provider").PromptImage[] = []
-                  const filenames: string[] = []
-                  for (const entry of manifest) {
-                    const imgFile = Bun.file(`${TANGERINE_HOME}/images/${taskId}/${entry.filename}`)
-                    if (await imgFile.exists()) {
-                      const buf = Buffer.from(await imgFile.arrayBuffer())
-                      images.push({ mediaType: entry.mediaType as import("../agent/provider").PromptImage["mediaType"], data: buf.toString("base64") })
-                      filenames.push(entry.filename)
-                    }
-                  }
-                  // Clean up manifest — only needed for initial send
-                  await Bun.file(manifestPath).writer().end()
-                  return { images: images.length > 0 ? images : undefined, filenames: filenames.length > 0 ? filenames : undefined }
-                } catch {
-                  return { images: undefined, filenames: undefined }
-                }
-              }
-
-              loadInitialImages().then(async ({ images, filenames }) => {
-                const projConfig = task?.project_id ? getProjectConfig(config.config, task.project_id) : undefined
-
-                const notes = buildSystemNotes(taskId, {
-                  setupCommand: projConfig?.setup,
-                  taskType: task?.type ?? undefined,
-                  prMode: projConfig?.prMode,
-                })
-                getTaskState(taskId).firstPromptSent = true
-
-                // Append escalation block for worker tasks so the agent knows
-                // how to escalate out-of-scope issues. Injected here (not stored
-                // in DB description) to keep the UI task description clean.
-                let escalationBlock = ""
-                if (task?.project_id) {
-                  const orchestratorRow = db.prepare(
-                    "SELECT id FROM tasks WHERE project_id = ? AND type = 'orchestrator' AND status NOT IN ('done', 'failed', 'cancelled') LIMIT 1"
-                  ).get(task.project_id) as { id: string } | null
-                  if (orchestratorRow && orchestratorRow.id !== taskId) {
-                    escalationBlock = buildEscalationBlock(orchestratorRow.id)
-                  }
-                }
-
-                const taskState = getTaskState(taskId)
-                const usedSystemPrompt = await applySystemPromptIfSupported(session.agentHandle, notes, taskState.systemPromptApplied)
-                taskState.systemPromptApplied = usedSystemPrompt
-                const fullPrompt = usedSystemPrompt || notes.length === 0
-                  ? initialPrompt + escalationBlock
-                  : notes.join("\n") + "\n\n" + initialPrompt + escalationBlock
-
-                await Effect.runPromise(
-                  session.agentHandle.sendPrompt(fullPrompt, images).pipe(Effect.catchAll(() => Effect.void))
-                )
-
-                // Only save to session_logs and emit on first delivery — avoid duplicates on retry
-                if (!isRetry) {
-                  emitTaskEvent(taskId, {
-                    role: "user",
-                    content: initialPrompt,
-                    timestamp: new Date().toISOString(),
-                  })
-                  await Effect.runPromise(
-                    insertSessionLog(db, {
-                      task_id: taskId,
-                      role: "user",
-                      content: initialPrompt,
-                      images: filenames ? JSON.stringify(filenames) : null,
-                    }).pipe(
-                      Effect.catchAll(() => Effect.void)
-                    )
-                  )
-                }
-
-                // Now drain any queued prompts (e.g. user message sent while task was starting)
-                await Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
-              })
-            } else {
-              // No initial prompt — just drain the queue
-              Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
-            }
-          } else {
-            // Fallback: drain queued prompts for any other case
-            Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
-          }
-
-          getTaskState(taskId).idleWake = false
-
-          session.agentHandle.subscribe((event) => {
+          subscribeBeforePrompt(session.agentHandle, (event) => {
             switch (event.kind) {
               case "message.streaming": {
                 if (event.content) {
@@ -682,6 +536,161 @@ export async function start(): Promise<void> {
                 break
               }
             }
+          }, () => {
+            // Send initial prompt for new tasks, or reconnect nudge for existing ones.
+            // Key distinction: if the agent never responded (e.g. killed by rapid model
+            // change before processing the prompt), re-send the full initial prompt —
+            // a nudge won't work because the new session has no conversation context.
+            const hasLogs = db.prepare("SELECT 1 FROM session_logs WHERE task_id = ? LIMIT 1").get(taskId)
+            const hasAssistantResponse = hasLogs
+              ? db.prepare("SELECT 1 FROM session_logs WHERE task_id = ? AND role IN ('assistant', 'narration') LIMIT 1").get(taskId)
+              : null
+            const lastLog = hasLogs ? getLastConversationLog(db, taskId) : null
+            if (hasLogs && hasAssistantResponse && lastLog?.role === "user" && !getTaskState(taskId).idleWake) {
+              // Reconnect after server restart or model change — agent had conversation context.
+              // Skip for idle-wake: the user's new message is already queued via drainQueuedPrompts.
+              const sendReconnectNudge = async () => {
+                try {
+                  // Wait for Claude Code to finish initializing before sending a prompt.
+                  // Do NOT send abort/SIGINT here — Claude Code is idle after resume and
+                  // SIGINT terminates an idle process rather than interrupting an in-progress turn,
+                  // causing an immediate crash-restart loop.
+                  await new Promise((r) => setTimeout(r, 1500))
+
+                  const taskRow = db.prepare(
+                    "SELECT title, description, type, project_id FROM tasks WHERE id = ?"
+                  ).get(taskId) as { title: string; description: string | null; type: string | null; project_id: string | null } | null
+
+                  const originalTask = taskRow?.description || taskRow?.title || ""
+                  const unansweredUserMsg = lastLog?.role === "user" ? lastLog.content : null
+                  const reconnectProjConfig = taskRow?.project_id ? getProjectConfig(config.config, taskRow.project_id) : undefined
+
+                  const nudgeParts = [
+                    `[TANGERINE: Server restarted. You are working on: ${originalTask}]`,
+                  ]
+                  if (taskRow?.type !== "reviewer" && reconnectProjConfig?.prMode !== "none") {
+                    nudgeParts.push(`[NOTE: When your work is complete: ${buildPrWorkflowNote(taskId, undefined, reconnectProjConfig?.prMode)}]`)
+                  }
+                  nudgeParts.push(
+                    unansweredUserMsg
+                      ? `The last message you had not yet responded to was: ${unansweredUserMsg}\n\nPlease continue.`
+                      : "Please continue where you left off.",
+                  )
+                  const nudge = nudgeParts.join("\n\n")
+
+                  await Effect.runPromise(
+                    session.agentHandle.sendPrompt(nudge).pipe(Effect.catchAll(() => Effect.void))
+                  )
+                } catch (err) {
+                  log.error("Failed to send reconnect nudge", { taskId, error: String(err) })
+                }
+              }
+              sendReconnectNudge()
+              // Drain queued prompts for reconnect — agent already has conversation context
+              Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
+            } else if (!hasLogs || (hasLogs && !hasAssistantResponse)) {
+              // No logs at all (fresh task) or logs exist but agent never responded
+              // (e.g. killed by model change before processing prompt). Either way,
+              // send the full initial prompt — don't resume a nonexistent conversation.
+              // Queued prompts are drained AFTER the initial prompt so the agent gets
+              // its task description (including orchestrator system prompt) first.
+              const isRetry = !!hasLogs // User message already saved, just re-deliver prompt
+              const task = db.prepare("SELECT description, title, project_id, type FROM tasks WHERE id = ?").get(taskId) as { description: string | null; title: string; project_id: string; type: string | null } | null
+              const initialPrompt = task?.description || task?.title
+              if (initialPrompt) {
+                // Load initial images saved during task creation (if any)
+                const loadInitialImages = async () => {
+                  if (isRetry) return { images: undefined, filenames: undefined } // images already saved
+                  const manifestPath = `${TANGERINE_HOME}/images/${taskId}/initial.json`
+                  const file = Bun.file(manifestPath)
+                  if (!(await file.exists())) return { images: undefined, filenames: undefined }
+                  try {
+                    const manifest = JSON.parse(await file.text()) as Array<{ filename: string; mediaType: string }>
+                    if (!manifest.length) return { images: undefined, filenames: undefined }
+                    const images: import("../agent/provider").PromptImage[] = []
+                    const filenames: string[] = []
+                    for (const entry of manifest) {
+                      const imgFile = Bun.file(`${TANGERINE_HOME}/images/${taskId}/${entry.filename}`)
+                      if (await imgFile.exists()) {
+                        const buf = Buffer.from(await imgFile.arrayBuffer())
+                        images.push({ mediaType: entry.mediaType as import("../agent/provider").PromptImage["mediaType"], data: buf.toString("base64") })
+                        filenames.push(entry.filename)
+                      }
+                    }
+                    // Clean up manifest — only needed for initial send
+                    await Bun.file(manifestPath).writer().end()
+                    return { images: images.length > 0 ? images : undefined, filenames: filenames.length > 0 ? filenames : undefined }
+                  } catch {
+                    return { images: undefined, filenames: undefined }
+                  }
+                }
+
+                loadInitialImages().then(async ({ images, filenames }) => {
+                  const projConfig = task?.project_id ? getProjectConfig(config.config, task.project_id) : undefined
+
+                  const notes = buildSystemNotes(taskId, {
+                    setupCommand: projConfig?.setup,
+                    taskType: task?.type ?? undefined,
+                    prMode: projConfig?.prMode,
+                  })
+                  getTaskState(taskId).firstPromptSent = true
+
+                  // Append escalation block for worker tasks so the agent knows
+                  // how to escalate out-of-scope issues. Injected here (not stored
+                  // in DB description) to keep the UI task description clean.
+                  let escalationBlock = ""
+                  if (task?.project_id) {
+                    const orchestratorRow = db.prepare(
+                      "SELECT id FROM tasks WHERE project_id = ? AND type = 'orchestrator' AND status NOT IN ('done', 'failed', 'cancelled') LIMIT 1"
+                    ).get(task.project_id) as { id: string } | null
+                    if (orchestratorRow && orchestratorRow.id !== taskId) {
+                      escalationBlock = buildEscalationBlock(orchestratorRow.id)
+                    }
+                  }
+
+                  const taskState = getTaskState(taskId)
+                  const usedSystemPrompt = await applySystemPromptIfSupported(session.agentHandle, notes, taskState.systemPromptApplied)
+                  taskState.systemPromptApplied = usedSystemPrompt
+                  const fullPrompt = usedSystemPrompt || notes.length === 0
+                    ? initialPrompt + escalationBlock
+                    : notes.join("\n") + "\n\n" + initialPrompt + escalationBlock
+
+                  await Effect.runPromise(
+                    session.agentHandle.sendPrompt(fullPrompt, images).pipe(Effect.catchAll(() => Effect.void))
+                  )
+
+                  // Only save to session_logs and emit on first delivery — avoid duplicates on retry
+                  if (!isRetry) {
+                    emitTaskEvent(taskId, {
+                      role: "user",
+                      content: initialPrompt,
+                      timestamp: new Date().toISOString(),
+                    })
+                    await Effect.runPromise(
+                      insertSessionLog(db, {
+                        task_id: taskId,
+                        role: "user",
+                        content: initialPrompt,
+                        images: filenames ? JSON.stringify(filenames) : null,
+                      }).pipe(
+                        Effect.catchAll(() => Effect.void)
+                      )
+                    )
+                  }
+
+                  // Now drain any queued prompts (e.g. user message sent while task was starting)
+                  await Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
+                })
+              } else {
+                // No initial prompt — just drain the queue
+                Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
+              }
+            } else {
+              // Fallback: drain queued prompts for any other case
+              Effect.runPromise(drainQueuedPrompts(taskId, sendFn))
+            }
+
+            getTaskState(taskId).idleWake = false
           })
         },
       },
