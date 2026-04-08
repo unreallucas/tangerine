@@ -34,6 +34,9 @@ export function useSession(taskId: string): UseSessionResult {
   const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null)
   const { connected, messages: wsMessages, send } = useWebSocket(taskId)
   const processedCountRef = useRef(0)
+  // Track optimistic user message IDs so we can deduplicate WS broadcasts
+  // without false-positives when the same text is sent twice.
+  const pendingOptimisticRef = useRef<Set<string>>(new Set())
 
   // Clear all session state immediately when the task changes so the previous
   // task's messages/activities/status don't leak into the new one while the
@@ -126,16 +129,18 @@ export function useSession(taskId: string): UseSessionResult {
             newMsg.images = (imgData as string[]).map((f) => ({ src: `/api/tasks/${taskId}/images/${f}` }))
           }
           setMessages((prev) => {
-            // Deduplicate user messages: the sender already added an optimistic
-            // copy, so skip the WS broadcast for the same content.
-            if (newMsg.role === "user") {
-              const isDup = prev.some(
-                (m) =>
-                  m.role === "user" &&
-                  m.content === newMsg.content &&
-                  Math.abs(new Date(m.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 5000,
-              )
-              if (isDup) return prev
+            // Deduplicate: if this tab sent the message optimistically, skip
+            // the WS broadcast. Match by content against pending optimistic IDs
+            // so sending the same text twice still works correctly.
+            if (newMsg.role === "user" && pendingOptimisticRef.current.size > 0) {
+              const matchId = [...pendingOptimisticRef.current].find((id) => {
+                const opt = prev.find((m) => m.id === id)
+                return opt && opt.content === newMsg.content
+              })
+              if (matchId) {
+                pendingOptimisticRef.current.delete(matchId)
+                return prev
+              }
             }
             return [...prev, newMsg]
           })
@@ -188,10 +193,12 @@ export function useSession(taskId: string): UseSessionResult {
       // The server also broadcasts a WS event to all clients; the handleWsMessage
       // handler deduplicates so this tab won't show the message twice.
       if (text || images?.length) {
+        const optimisticId = `user-${Date.now()}`
+        pendingOptimisticRef.current.add(optimisticId)
         setMessages((prev) => [
           ...prev,
           {
-            id: `user-${Date.now()}`,
+            id: optimisticId,
             role: "user",
             content: text,
             timestamp: new Date().toISOString(),
