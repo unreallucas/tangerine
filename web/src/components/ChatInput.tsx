@@ -296,8 +296,8 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
     }
   }, [onSend])
 
-  // Chips are visible whenever the input is focused and empty — same on all breakpoints
-  const showPrompts = isFocused && !text.trim() && !!predefinedPrompts?.length
+  // Chips are visible whenever the input is empty — hide once user starts typing
+  const showPrompts = !text.trim() && !!predefinedPrompts?.length
 
   const canSend = (text.trim().length > 0 || pendingImages.length > 0 || !!quotedMessage) && !disabled
   const canChangeModel = providerModels && providerModels.length > 1 && onModelChange
