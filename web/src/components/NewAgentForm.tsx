@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react"
-import type { ProviderType, PromptImage, Task } from "@tangerine/shared"
+import { isGithubRepo, isProviderAvailable, SUPPORTED_PROVIDERS, type ProviderType, type PromptImage, type Task } from "@tangerine/shared"
 import { useProject } from "../context/ProjectContext"
 import { ModelSelector } from "./ModelSelector"
 import { HarnessSelector } from "./HarnessSelector"
@@ -31,7 +31,7 @@ function loadDraftFromKey(key: string): { description?: string; customBranch?: s
 /* -- Main form -- */
 
 export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, autoFocus }: NewAgentFormProps) {
-  const { current, modelsByProvider } = useProject()
+  const { current, modelsByProvider, systemCapabilities } = useProject()
   const PREFS_KEY = "tangerine:agent-prefs"
   const draftKey = `tangerine:new-agent-draft:${current?.name ?? "unknown"}:${refTaskId ?? "new"}`
 
@@ -47,9 +47,27 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
   }
   const saved = loadPrefs()
 
-  const [provider, setProvider] = useState<ProviderType>((saved.provider as ProviderType) ?? current?.defaultProvider ?? "claude-code")
+  const defaultProvider = (() => {
+    const preferred = (saved.provider as ProviderType) ?? current?.defaultProvider ?? "claude-code"
+    if (isProviderAvailable(systemCapabilities, preferred)) return preferred
+    const available = SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p))
+    return (available ?? preferred) as ProviderType
+  })()
+
+  const [provider, setProvider] = useState<ProviderType>(defaultProvider)
   const [modelByProvider, setModelByProvider] = useState<Record<string, string>>(saved.models ?? {})
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>((saved.reasoningEffort as ReasoningEffort) ?? "medium")
+
+  // Resync provider once systemCapabilities loads (initially null → object)
+  const capsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!systemCapabilities || capsLoadedRef.current) return
+    capsLoadedRef.current = true
+    if (!isProviderAvailable(systemCapabilities, provider)) {
+      const available = SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p))
+      if (available) setProvider(available as ProviderType)
+    }
+  }, [systemCapabilities, provider])
   const [taskType, setTaskType] = useState<"worker" | "reviewer">(() => loadDraftFromKey(draftKey).taskType ?? "worker")
   const [submitting, setSubmitting] = useState(false)
   const branch = current?.defaultBranch ?? "main"
@@ -153,7 +171,8 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
     }
   }, [draftKey, description, customBranch, taskType, pendingImages])
 
-  const canSubmit = (!!description.trim() || pendingImages.length > 0) && !!current && !submitting
+  const providerAvailable = isProviderAvailable(systemCapabilities, provider)
+  const canSubmit = (!!description.trim() || pendingImages.length > 0) && !!current && !submitting && providerAvailable
 
   const submitAndReset = useCallback((data: Parameters<typeof onSubmit>[0]) => {
     setSubmitting(true)
@@ -240,6 +259,26 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
             </div>
           )}
 
+          {/* gh CLI warning for GitHub-backed projects */}
+          {/* gh CLI warning for GitHub-backed projects */}
+          {(() => {
+            if (!systemCapabilities || !current?.repo || !isGithubRepo(current.repo)) return null
+            const msg = !systemCapabilities.gh.available
+              ? "gh CLI not installed — PR creation and tracking unavailable"
+              : !systemCapabilities.gh.authenticated
+                ? <>gh CLI not authenticated — run <code className="font-mono">gh auth login</code> for PR features</>
+                : null
+            if (!msg) return null
+            return (
+              <div className="flex items-center gap-2 rounded-lg border border-status-warning-text/20 bg-status-warning-bg px-3 py-2 text-xs text-status-warning-text">
+                <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <span>{msg}</span>
+              </div>
+            )
+          })()}
+
           {/* Input card */}
           <div className="overflow-visible rounded-xl border border-edge bg-surface">
             {pendingImages.length > 0 && (
@@ -299,7 +338,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
             {/* Inline controls below textarea */}
             <div className="flex flex-col gap-2.5 overflow-visible border-t border-edge px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2 overflow-visible">
-                <HarnessSelector value={provider} onChange={handleProviderChange} />
+                <HarnessSelector value={provider} onChange={handleProviderChange} systemCapabilities={systemCapabilities} />
                 <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-edge px-2 py-1">
                   <svg className="h-3 w-3 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0-12.814a2.25 2.25 0 1 0 0-2.186m0 2.186a2.25 2.25 0 1 0 0 2.186" />

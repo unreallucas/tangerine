@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react"
-import type { Cron, ProviderType } from "@tangerine/shared"
+import { useState, useCallback, useEffect, useRef } from "react"
+import { isProviderAvailable, SUPPORTED_PROVIDERS, type Cron, type ProviderType } from "@tangerine/shared"
 import { createCron, updateCron } from "../lib/api"
 import { formatCronExpression, formatRelativeTime } from "../lib/format"
+import { useProject } from "../context/ProjectContext"
 import { HarnessSelector } from "./HarnessSelector"
 import { ModelSelector } from "./ModelSelector"
 
@@ -29,6 +30,7 @@ function CronFields({
   providerModels, activeModel, setModel,
   branch, setBranch,
 }: CronFieldsProps) {
+  const { systemCapabilities } = useProject()
   return (
     <>
       <input
@@ -61,7 +63,7 @@ function CronFields({
         )}
       </div>
       <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        <HarnessSelector value={provider} onChange={setProvider} />
+        <HarnessSelector value={provider} onChange={setProvider} systemCapabilities={systemCapabilities} />
         <ModelSelector
           models={providerModels}
           model={activeModel}
@@ -85,19 +87,30 @@ export function CronForm({ projectId, onCreated, modelsByProvider }: {
   onCreated: () => void
   modelsByProvider: Record<string, string[]>
 }) {
+  const { systemCapabilities } = useProject()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [cron, setCron] = useState("")
-  const [provider, setProvider] = useState<ProviderType>("claude-code")
+  const [provider, setProvider] = useState<ProviderType>(() => {
+    if (isProviderAvailable(systemCapabilities, "claude-code")) return "claude-code"
+    return (SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p)) ?? "claude-code") as ProviderType
+  })
   const [model, setModel] = useState("")
   const [branch, setBranch] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Resync if capabilities load after mount
+  useEffect(() => {
+    if (!systemCapabilities || isProviderAvailable(systemCapabilities, provider)) return
+    const available = SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p))
+    if (available) setProvider(available as ProviderType)
+  }, [systemCapabilities, provider])
+
   const providerModels = modelsByProvider[provider] ?? []
   const activeModel = model && providerModels.includes(model) ? model : providerModels[0] ?? ""
 
-  const canSubmit = title.trim() && cron.trim() && !submitting
+  const canSubmit = title.trim() && cron.trim() && !submitting && isProviderAvailable(systemCapabilities, provider)
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return
@@ -159,6 +172,7 @@ export function CronRow({ cron, onToggle, onDelete, onRefresh, modelsByProvider 
   onRefresh: () => void
   modelsByProvider: Record<string, string[]>
 }) {
+  const { systemCapabilities } = useProject()
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(cron.title)
   const [description, setDescription] = useState(cron.description ?? "")
@@ -166,7 +180,20 @@ export function CronRow({ cron, onToggle, onDelete, onRefresh, modelsByProvider 
   // taskDefaultsEnabled: false when cron.taskDefaults is null so we don't silently
   // override project-level defaults when editing only title/description/schedule.
   const [taskDefaultsEnabled, setTaskDefaultsEnabled] = useState(cron.taskDefaults !== null)
-  const [provider, setProvider] = useState<ProviderType>((cron.taskDefaults?.provider as ProviderType) ?? "claude-code")
+  const [provider, setProvider] = useState<ProviderType>(() => {
+    const saved = (cron.taskDefaults?.provider as ProviderType) ?? "claude-code"
+    if (isProviderAvailable(systemCapabilities, saved)) return saved
+    return (SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p)) ?? saved) as ProviderType
+  })
+  const capsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!systemCapabilities || capsLoadedRef.current) return
+    capsLoadedRef.current = true
+    if (!isProviderAvailable(systemCapabilities, provider)) {
+      const available = SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p))
+      if (available) setProvider(available as ProviderType)
+    }
+  }, [systemCapabilities, provider])
   const [model, setModel] = useState(cron.taskDefaults?.model ?? "")
   const [branch, setBranch] = useState(cron.taskDefaults?.branch ?? "")
   const [submitting, setSubmitting] = useState(false)
@@ -176,7 +203,7 @@ export function CronRow({ cron, onToggle, onDelete, onRefresh, modelsByProvider 
   // activeModel is only for display; saving uses raw `model` to avoid silent fallback
   const activeModel = model && providerModels.includes(model) ? model : providerModels[0] ?? ""
 
-  const canSubmit = title.trim() && cronExpr.trim() && !submitting
+  const canSubmit = title.trim() && cronExpr.trim() && !submitting && isProviderAvailable(systemCapabilities, provider)
 
   const handleCancel = useCallback(() => {
     // Reset to saved values
@@ -261,7 +288,7 @@ export function CronRow({ cron, onToggle, onDelete, onRefresh, modelsByProvider 
           </label>
           {taskDefaultsEnabled && (
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <HarnessSelector value={provider} onChange={setProvider} />
+              <HarnessSelector value={provider} onChange={setProvider} systemCapabilities={systemCapabilities} />
               <ModelSelector
                 models={providerModels}
                 model={activeModel}

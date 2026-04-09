@@ -79,6 +79,20 @@ export type WsClientMessage =
   | { type: "prompt"; text: string; images?: PromptImage[] }
   | { type: "abort" }
 
+// System-level tool availability detected at server startup
+export interface SystemCapabilities {
+  git: { available: boolean }
+  gh: { available: boolean; authenticated: boolean }
+  dtach: { available: boolean }
+  providers: Record<string, { available: boolean; cliCommand: string }>
+}
+
+/** Check if a provider CLI is available. Returns true when capabilities are unknown (null). */
+export function isProviderAvailable(capabilities: SystemCapabilities | null, provider: string): boolean {
+  if (!capabilities) return true
+  return capabilities.providers[provider]?.available !== false
+}
+
 // System logs
 export type LogLevel = "debug" | "info" | "warn" | "error"
 

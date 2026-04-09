@@ -1,18 +1,20 @@
-export type {
-  TaskStatus,
-  TaskSource,
-  TaskType,
-  TaskCapability,
-  Task,
-  Cron,
-  ProviderType,
-  ActivityType,
-  ActivityEntry,
-  WsServerMessage,
-  WsClientMessage,
-  PromptImage,
-  LogLevel,
-  SystemLogEntry,
+export {
+  isProviderAvailable,
+  type TaskStatus,
+  type TaskSource,
+  type TaskType,
+  type TaskCapability,
+  type Task,
+  type Cron,
+  type ProviderType,
+  type ActivityType,
+  type ActivityEntry,
+  type WsServerMessage,
+  type WsClientMessage,
+  type PromptImage,
+  type LogLevel,
+  type SystemLogEntry,
+  type SystemCapabilities,
 } from "./types"
 
 export {
@@ -46,4 +48,5 @@ export {
   SUPPORTED_PROVIDERS,
   ORCHESTRATOR_TASK_NAME,
   TERMINAL_STATUSES,
+  isGithubRepo,
 } from "./constants"
