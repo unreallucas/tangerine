@@ -72,20 +72,25 @@ User runs `/platform-setup` from their host machine (macOS or Linux) and wants t
    ```bash
    mkdir -p ~/workspace
    git clone <tangerine-repo> ~/workspace/tangerine
-   cd ~/workspace/tangerine && bun install
+   cd ~/workspace/tangerine && bun install && bun link
    ```
 
 4. **Configure projects** (see Project Setup below)
 
-5. **Install agent skills**:
+5. **Install agent skills** (once):
    ```bash
    cd ~/workspace/tangerine
-   bin/tangerine install
+   tangerine install
    ```
 
-6. **Start server**:
+6. **Add a project** (required before starting — see Project Setup below):
    ```bash
-   bin/tangerine start
+   tangerine project add --name <name> --repo <url> --setup "<cmd>"
+   ```
+
+7. **Start server**:
+   ```bash
+   tangerine start
    ```
 
 ### Mode 2: Fresh VM Setup (from host, Lima)
@@ -107,16 +112,19 @@ User runs `/platform-setup` from the HOST machine and wants a Lima VM. You help 
    ```bash
    cd ~/workspace
    git clone <tangerine-repo> tangerine
-   cd tangerine && bun install
+   cd tangerine && bun install && bun link
    ```
 
-4. **Configure projects** (see Project Setup below)
+4. **Install agent skills** inside VM (once — see Agent Skills below)
 
-5. **Install agent skills** inside VM (see Agent Skills below)
+5. **Add a project** (required before starting — see Project Setup below):
+   ```bash
+   tangerine project add --name <name> --repo <url> --setup "<cmd>"
+   ```
 
 6. **Start server**:
    ```bash
-   bin/tangerine start
+   tangerine start
    ```
 
 ### Mode 3: Project Setup (inside VM or on host)
