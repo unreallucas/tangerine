@@ -26,7 +26,8 @@ import type { HealthCheckDeps } from "../tasks/health"
 import { reconnectSessionWithRetry } from "../tasks/retry"
 import { AgentError } from "../errors"
 import { extractPrUrl, verifyPrBranch, startPrMonitor } from "../tasks/pr-monitor"
-import { ghSpawnEnv, isGithubRepo, resolveGithubSlug, getRepoForkInfo } from "../gh"
+import { isGithubRepo, resolveGithubSlug, getRepoForkInfo } from "../gh"
+import { applyLoginShellPath, checkSystemTools } from "./system-check"
 import type { PrMonitorDeps } from "../tasks/pr-monitor"
 import { initSystemLog, cleanupSystemLogs } from "../system-log"
 import type { AgentHandle } from "../agent/provider"
@@ -174,25 +175,7 @@ export async function start(): Promise<void> {
     // version-manager shim that only exposes node/npm). A login shell sources
     // the user's profile and picks up globally-installed tools.
     if (!isTestMode()) {
-      try {
-        const { spawnSync } = await import("node:child_process")
-        const shell = process.env["SHELL"] || "/bin/bash"
-        // Use the last line — any shell startup noise prints before our echo
-        const result = spawnSync(shell, ["-lc", 'echo "$PATH"'], { encoding: "utf-8", timeout: 3_000 })
-        const loginPath = result.stdout?.trim().split("\n").pop()
-        if (result.status === 0 && loginPath) {
-          const currentPath = process.env["PATH"] || ""
-          // Merge: keep current entries, append any new ones from the login shell
-          const currentDirs = new Set(currentPath.split(":").filter(Boolean))
-          const newDirs = loginPath.split(":").filter((d) => d && !currentDirs.has(d))
-          if (newDirs.length > 0) {
-            process.env["PATH"] = [currentPath, ...newDirs].filter(Boolean).join(":")
-            log.info("Enriched PATH from login shell", { added: newDirs.length })
-          }
-        }
-      } catch {
-        // Non-fatal — proceed with existing PATH
-      }
+      applyLoginShellPath()
     }
 
     // Agent provider factories (local — no SSH deps)
@@ -200,7 +183,7 @@ export async function start(): Promise<void> {
 
     // Detect system tool availability. Results are stored in systemCapabilities
     // and passed to the API so the UI can gate features on what's installed.
-    const systemCapabilities: import("@tangerine/shared").SystemCapabilities = {
+    let systemCapabilities: import("@tangerine/shared").SystemCapabilities = {
       git: { available: true },
       gh: { available: false, authenticated: false },
       dtach: { available: false },
@@ -208,68 +191,21 @@ export async function start(): Promise<void> {
     }
 
     if (!isTestMode()) {
-      const missing: string[] = []
-      const warnings: string[] = []
+      const { errors, warnings, capabilities } = checkSystemTools({
+        hasGithubProject: config.config.projects.some((p) => isGithubRepo(p.repo)),
+        providers: Object.entries(factories).map(([id, factory]) => ({ id, cliCommand: factory.metadata.cliCommand })),
+      })
 
-      const cmdExists = async (cmd: string) => {
-        const proc = Bun.spawn(["which", cmd], { stdout: "pipe", stderr: "pipe" })
-        return (await proc.exited) === 0
-      }
-
-      // git — required for worktrees, fetch, branch operations
-      if (!(await cmdExists("git"))) {
-        systemCapabilities.git.available = false
-        missing.push("git is not installed — worktree setup and branch operations will not work.")
-      }
-
-      // gh auth — required for PR capture and polling. Detect GitHub repos whether
-      // specified as full URLs (github.com/owner/repo, github.example.com/owner/repo) or owner/repo shorthand.
-      const ghInstalled = await cmdExists("gh")
-      if (ghInstalled) {
-        systemCapabilities.gh.available = true
-        const ghAuth = Bun.spawn(["gh", "auth", "status"], ghSpawnEnv())
-        if ((await ghAuth.exited) === 0) {
-          systemCapabilities.gh.authenticated = true
-        } else {
-          const hasGithubProject = config.config.projects.some((p) => isGithubRepo(p.repo))
-          if (hasGithubProject) {
-            warnings.push("gh CLI is not authenticated — PR capture and GitHub polling will not work. Run `gh auth login`.")
-          }
-        }
-      } else {
-        const hasGithubProject = config.config.projects.some((p) => isGithubRepo(p.repo))
-        if (hasGithubProject) {
-          warnings.push("gh CLI is not installed — PR capture and auto-complete will not work. Install from https://cli.github.com/")
-        }
-      }
-
-      // dtach — needed for persistent terminal sessions, but not critical for core operation
-      if (await cmdExists("dtach")) {
-        systemCapabilities.dtach.available = true
-      } else {
-        warnings.push("dtach is not installed — terminal sessions will not work.")
-      }
-
-      // Agent provider CLIs — any provider can be selected at task creation time,
-      // so check all supported providers, not just the configured defaults.
-      for (const [provider, factory] of Object.entries(factories)) {
-        const cli = factory.metadata.cliCommand
-        const available = await cmdExists(cli)
-        systemCapabilities.providers[provider] = { available, cliCommand: cli }
-        if (!available) {
-          warnings.push(`${cli} CLI is not installed — provider "${provider}" will not be available.`)
-        }
-      }
+      systemCapabilities = capabilities
 
       for (const msg of warnings) log.warn(msg)
-      if (missing.length > 0) {
-        for (const msg of missing) log.error(msg)
+      if (errors.length > 0) {
+        for (const msg of errors) log.error(msg)
+        log.error("Fix the above issues and restart the server.")
         process.exit(1)
       }
 
-      const availableProviders = Object.entries(systemCapabilities.providers)
-        .filter(([, v]) => v.available)
-        .map(([k]) => k)
+      const availableProviders = Object.keys(capabilities.providers).filter((k) => capabilities.providers[k]!.available)
       if (warnings.length > 0) {
         log.warn(`Starting with degraded capabilities (${warnings.length} warning${warnings.length === 1 ? "" : "s"} above) — available providers: [${availableProviders.join(", ") || "none"}]`)
       } else {

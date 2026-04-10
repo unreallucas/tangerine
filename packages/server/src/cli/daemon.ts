@@ -7,6 +7,9 @@ import { existsSync, readFileSync, writeFileSync, writeSync, unlinkSync, mkdirSy
 import { join } from "path"
 import { homedir } from "os"
 import { DAEMON_RESTART_EXIT_CODE, shouldRestartDaemon } from "../daemon-exit"
+import { applyLoginShellPath, checkSystemTools } from "./system-check"
+import { isGithubRepo } from "@tangerine/shared"
+import { createAgentFactories } from "../agent/factories"
 
 const TANGERINE_DIR = join(homedir(), "tangerine")
 const PID_FILE = join(TANGERINE_DIR, "tangerine.pid")
@@ -65,6 +68,21 @@ export async function daemonStart(): Promise<void> {
     process.exit(0)
   }
 
+  // Run system checks before spawning so errors and warnings appear in the
+  // user's terminal — the detached server process writes to the log file.
+  applyLoginShellPath()
+  const factories = createAgentFactories()
+  const { errors, warnings } = checkSystemTools({
+    hasGithubProject: config.config.projects.some((p) => isGithubRepo(p.repo)),
+    providers: Object.entries(factories).map(([id, factory]) => ({ id, cliCommand: factory.metadata.cliCommand })),
+  })
+
+  if (errors.length > 0) {
+    for (const msg of errors) console.error(`ERROR ${msg}`)
+    console.error("Fix the above issues and restart the server.")
+    process.exit(1)
+  }
+
   // Clean up stale PID file
   if (existingPid !== null) {
     unlinkSync(PID_FILE)
@@ -89,9 +107,14 @@ export async function daemonStart(): Promise<void> {
   }
 
   writeFileSync(PID_FILE, String(pid))
+
+  const warningLines = warnings.length > 0
+    ? `\n  Warnings:\n${warnings.map((w) => `    WARN ${w}`).join("\n")}\n`
+    : ""
+
   console.log(`
 Tangerine is running!
-
+${warningLines}
   Dashboard:  http://localhost:${port}
 
   Commands:
