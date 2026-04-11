@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent, type MouseEvent } from "react"
+import { Send, ArrowUp, X, Quote } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import type { PromptImage, PredefinedPrompt, ProviderType, Task } from "@tangerine/shared"
 import { ModelSelector } from "./ModelSelector"
 import { ReasoningEffortSelector, type ReasoningEffort } from "./ReasoningEffortSelector"
@@ -303,30 +305,32 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
   const canChangeModel = providerModels && providerModels.length > 1 && onModelChange
 
   return (
-    <div className="relative border-t border-edge bg-surface px-3 py-2 md:bg-surface md:p-3 md:px-4">
+    <div className="relative border-t border-border bg-background px-3 py-2 md:bg-background md:p-3 md:px-4">
       {/* Predefined prompt chips + Quote button — absolutely positioned to avoid layout shift */}
       {(showPrompts || selectedText) && (
         <div className="pointer-events-none absolute bottom-full left-0 right-0 px-3 pb-2 md:px-4">
           <div className="pointer-events-auto flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {selectedText && onQuoteSelection && (
-              <button
+              <Button
+                variant="outline"
+                size="xs"
                 onMouseDown={(e) => { e.preventDefault(); onQuoteSelection() }}
-                className="pointer-events-auto shrink-0 flex items-center gap-1.5 rounded-md border border-tangerine/30 bg-tangerine/10 px-3 py-1 text-xs font-medium text-tangerine shadow-sm transition hover:bg-tangerine/20"
+                className="pointer-events-auto shrink-0 border-orange-500/30 bg-orange-500/10 text-orange-500 shadow-sm hover:bg-orange-500/20"
               >
-                <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.293-3.995 5.848h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.293-3.996 5.848h3.983v10h-9.983z" />
-                </svg>
+                <Quote className="h-3 w-3" />
                 Quote
-              </button>
+              </Button>
             )}
             {showPrompts && predefinedPrompts && predefinedPrompts.map((prompt, i) => (
-              <button
+              <Button
                 key={i}
+                variant="outline"
+                size="xs"
                 onMouseDown={(e) => handlePromptClick(e, prompt.text)}
-                className="pointer-events-auto shrink-0 rounded-full border border-edge bg-surface-secondary px-3 py-1 text-xs text-fg-muted shadow-sm transition hover:bg-surface-dark hover:text-white"
+                className="pointer-events-auto shrink-0 rounded-full bg-muted text-muted-foreground shadow-sm hover:bg-primary hover:text-white"
               >
                 {prompt.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -334,22 +338,20 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
 
       {/* Quote chip — shown when replying to a message */}
       {quotedMessage && (
-        <div className="mb-2 flex items-center gap-2 self-start rounded-full border border-tangerine/25 bg-tangerine/10 pl-2.5 pr-1.5 py-1 text-xs max-w-xs">
-          <svg className="h-3 w-3 shrink-0 text-tangerine/70" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.293-3.995 5.848h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.293-3.996 5.848h3.983v10h-9.983z" />
-          </svg>
-          <span className="truncate text-fg-muted">
+        <div className="mb-2 flex items-center gap-2 self-start rounded-full border border-orange-500/25 bg-orange-500/10 pl-2.5 pr-1.5 py-1 text-xs max-w-xs">
+          <Quote className="h-3 w-3 shrink-0 text-orange-500/70" />
+          <span className="truncate text-muted-foreground">
             {quotedMessage.length > 60 ? `${quotedMessage.slice(0, 60)}…` : quotedMessage}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={onQuoteDismiss}
             aria-label="Dismiss quote"
-            className="shrink-0 rounded-full p-0.5 text-fg-muted transition hover:bg-tangerine/10 hover:text-fg"
+            className="shrink-0 rounded-full text-muted-foreground hover:bg-orange-500/10 hover:text-foreground"
           >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <X className="h-3 w-3" />
+          </Button>
         </div>
       )}
 
@@ -361,14 +363,14 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
               <img
                 src={img.dataUrl}
                 alt="Pasted image"
-                className="h-14 w-14 rounded-md border border-edge object-cover"
+                className="h-14 w-14 rounded-md border border-border object-cover"
               />
               <button
                 onClick={() => removeImage(i)}
                 aria-label="Remove image"
-                className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-2xs text-white"
+                className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-2xs text-white"
               >
-                ×
+                <X className="h-2.5 w-2.5" />
               </button>
             </div>
           ))}
@@ -440,29 +442,26 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
             placeholder={isWorking ? "Agent is working... (messages will be queued)" : "Message agent..."}
             disabled={disabled}
             rows={1}
-            className="min-h-9 w-full resize-none rounded-lg border border-edge bg-surface px-3 py-2 text-base text-fg placeholder-fg-faint outline-none transition focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50 md:px-3.5 md:text-md md:placeholder-fg-muted"
+            className="min-h-9 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground placeholder-muted-foreground/50 outline-none transition focus:border-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50 md:px-3.5 md:text-md md:placeholder-muted-foreground"
           />
           {queueLength > 0 && (
-            <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-tangerine text-2xs font-bold text-white">
+            <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-2xs font-bold text-white">
               {queueLength}
             </span>
           )}
         </div>
 
         {/* Send button — always visible on all breakpoints */}
-        <button
+        <Button
           onClick={handleSend}
           disabled={!canSend}
           aria-label="Send message"
-          className="mb-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-dark text-white transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30 md:rounded-lg"
+          size="icon-lg"
+          className="mb-2 shrink-0 rounded-full md:rounded-lg"
         >
-          <svg className="h-4 w-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-          </svg>
-          <svg className="hidden h-4 w-4 md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-          </svg>
-        </button>
+          <ArrowUp className="h-4 w-4 md:hidden" />
+          <Send className="hidden h-4 w-4 md:block" />
+        </Button>
       </div>
 
       {/* Model + reasoning selectors + stop button */}
@@ -486,15 +485,16 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
           )}
         </div>
         {isWorking && (
-          <button
+          <Button
+            variant="destructive"
+            size="xs"
             onClick={onAbort}
-            className="flex items-center gap-1 rounded bg-status-error px-2 py-1"
           >
-            <svg className="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="1" />
             </svg>
-            <span className="text-xxs font-medium text-white">Stop agent</span>
-          </button>
+            <span className="text-xxs font-medium">Stop agent</span>
+          </Button>
         )}
       </div>
     </div>

@@ -24,7 +24,7 @@ export function MentionPicker({ tasks, selectedIndex, onSelect, onHover }: Menti
     <div
       className="absolute bottom-full left-0 right-0 z-50 mb-1"
     >
-      <div ref={listRef} className="max-h-52 overflow-y-auto rounded-lg border border-edge bg-surface shadow-lg">
+      <div ref={listRef} className="max-h-52 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
         {tasks.map((task, i) => {
           const statusConfig = getStatusConfig(task.status)
           const isSelected = i === selectedIndex
@@ -37,17 +37,17 @@ export function MentionPicker({ tasks, selectedIndex, onSelect, onHover }: Menti
               }}
               onMouseMove={() => onHover(i)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
-                isSelected ? "bg-surface-secondary" : ""
+                isSelected ? "bg-muted" : ""
               }`}
             >
               <div
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: statusConfig.color }}
               />
-              <span className="min-w-0 flex-1 truncate text-sm text-fg">
+              <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                 {formatTaskTitle(task)}
               </span>
-              <span className="shrink-0 font-mono text-xxs text-fg-muted">
+              <span className="shrink-0 font-mono text-xxs text-muted-foreground">
                 {task.id.slice(0, 8)}
               </span>
               <span

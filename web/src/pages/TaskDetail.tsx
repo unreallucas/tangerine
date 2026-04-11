@@ -370,7 +370,7 @@ export function TaskDetail() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-md text-fg-muted">
+      <div className="flex h-full items-center justify-center text-md text-muted-foreground">
         Loading...
       </div>
     )
@@ -378,7 +378,7 @@ export function TaskDetail() {
 
   if (!task) {
     return (
-      <div className="flex h-full items-center justify-center text-md text-fg-muted">
+      <div className="flex h-full items-center justify-center text-md text-muted-foreground">
         Task not found
       </div>
     )
@@ -407,10 +407,10 @@ export function TaskDetail() {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Task header — two rows on mobile (flex-col), one row on desktop (md:flex-row) */}
-        <div className="flex flex-col border-b border-edge md:h-12 md:flex-row md:items-center md:px-5">
+        <div className="flex flex-col border-b border-border md:h-12 md:flex-row md:items-center md:px-5">
           {/* Row 1 / Left: back + task name + branch */}
           <div className="flex h-11 min-w-0 items-center gap-2 px-3 md:h-auto md:flex-1 md:gap-3 md:px-0">
-            <button onClick={() => navigate("/")} aria-label="Back to runs" className="shrink-0 text-fg md:hidden">
+            <button onClick={() => navigate("/")} aria-label="Back to runs" className="shrink-0 text-foreground md:hidden">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
               </svg>
@@ -418,7 +418,7 @@ export function TaskDetail() {
             <button
               onClick={handleCopyId}
               title="Click to copy task ID"
-              className="min-w-0 truncate text-sm font-semibold text-fg hover:text-fg-muted"
+              className="min-w-0 truncate text-sm font-semibold text-foreground hover:text-muted-foreground"
             >
               {copiedId ? "Copied ID!" : formatTaskTitle(task)}
             </button>
@@ -426,12 +426,12 @@ export function TaskDetail() {
               <button
                 onClick={() => handleCopyBranch(task.branch!)}
                 title="Click to copy branch name"
-                className="flex shrink-0 items-center gap-1 hover:text-fg"
+                className="flex shrink-0 items-center gap-1 hover:text-foreground"
               >
-                <svg className="h-3.5 w-3.5 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-3.5 w-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 3v12m0 0a3 3 0 1 0 3 3m-3-3a3 3 0 0 1 3 3m0 0h6a3 3 0 0 0 3-3V9m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
                 </svg>
-                <span className="max-w-[120px] truncate font-mono text-xs text-fg-muted">{copiedBranch ? "Copied!" : task.branch}</span>
+                <span className="max-w-[120px] truncate font-mono text-xs text-muted-foreground">{copiedBranch ? "Copied!" : task.branch}</span>
               </button>
             )}
           </div>
@@ -444,7 +444,7 @@ export function TaskDetail() {
                 <a
                   href={uri}
                   title={`Open in ${EDITOR_NAMES[editor]}`}
-                  className="flex shrink-0 items-center gap-1 text-fg-muted hover:text-fg"
+                  className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-foreground"
                 >
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
@@ -471,7 +471,7 @@ export function TaskDetail() {
               {statusLabel}
             </span>
             <div className="ml-auto flex items-center gap-2">
-              <div className="flex items-center gap-0.5 rounded-lg bg-surface-secondary p-[3px]">
+              <div className="flex items-center gap-0.5 rounded-lg bg-muted p-[3px]">
                 <PaneToggle desktopActive={visiblePanes.has("chat")} mobileActive={mobilePane === "chat"} onClick={() => togglePane("chat")} label="Chat">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -507,7 +507,7 @@ export function TaskDetail() {
                   </svg>
                 </PaneToggle>
               </div>
-              <div className="h-5 w-px bg-edge" />
+              <div className="h-5 w-px bg-border" />
               <TaskOverflowMenu task={task} onRefetch={handleRefetch} size="md" />
             </div>
           </div>
@@ -515,17 +515,17 @@ export function TaskDetail() {
 
         {/* Parent / children relationship bar */}
         {(parentTask || childTasks.length > 0) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-edge px-3 py-1.5 text-xs text-fg-muted md:px-5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-3 py-1.5 text-xs text-muted-foreground md:px-5">
             {parentTask && (
               <Link
                 to={link(`/tasks/${parentTask.id}`)}
-                className="flex items-center gap-1 hover:text-fg"
+                className="flex items-center gap-1 hover:text-foreground"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                 </svg>
                 <span>Continued from:</span>
-                <span className="font-medium text-fg">{parentTask.title}</span>
+                <span className="font-medium text-foreground">{parentTask.title}</span>
               </Link>
             )}
             {childTasks.length > 0 && (
@@ -535,7 +535,7 @@ export function TaskDetail() {
                   <Link
                     key={child.id}
                     to={link(`/tasks/${child.id}`)}
-                    className="max-w-[200px] truncate rounded bg-surface-secondary px-1.5 py-0.5 text-xxs font-medium text-fg hover:bg-edge"
+                    className="max-w-[200px] truncate rounded bg-muted px-1.5 py-0.5 text-xxs font-medium text-foreground hover:bg-border"
                     title={child.title}
                   >
                     Continued in: {child.title}
@@ -544,7 +544,7 @@ export function TaskDetail() {
                 {childTasks.length > 3 && (
                   <button
                     onClick={() => setShowAllChildren((v) => !v)}
-                    className="rounded bg-surface-secondary px-1.5 py-0.5 text-xxs font-medium text-fg-muted hover:bg-edge hover:text-fg"
+                    className="rounded bg-muted px-1.5 py-0.5 text-xxs font-medium text-muted-foreground hover:bg-border hover:text-foreground"
                   >
                     {showAllChildren ? "Show less" : `+${childTasks.length - 3} more`}
                   </button>
@@ -613,7 +613,7 @@ export function TaskDetail() {
                   {diffFiles.length > 0 ? (
                     <DiffView files={diffFiles} comments={diffComments} onAddComment={isTerminated ? undefined : handleAddComment} />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-md text-fg-muted">
+                    <div className="flex h-full items-center justify-center text-md text-muted-foreground">
                       No file changes yet
                     </div>
                   )}
@@ -657,7 +657,7 @@ export function TaskDetail() {
           {(mobilePane === "activity" || visiblePanes.has("activity")) && (
             <div
               className={[
-                "flex min-h-0 min-w-0 flex-col bg-surface-secondary",
+                "flex min-h-0 min-w-0 flex-col bg-muted",
                 mobilePane === "activity" ? "flex-1" : "hidden",
                 visiblePanes.has("activity")
                   ? `md:flex${desktopIsSolo || firstVisiblePane === "activity" ? " md:flex-1" : " md:flex-none md:[width:var(--pane-w)] md:max-w-full"}`

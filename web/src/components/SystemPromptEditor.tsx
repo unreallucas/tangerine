@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react"
 import { updateProject } from "../lib/api"
 import { useProject } from "../context/ProjectContext"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 interface SystemPromptEditorProps {
   project: string
@@ -43,27 +45,28 @@ export function SystemPromptEditor({
   }, [project, value, taskType, refreshProjects])
 
   return (
-    <div className="flex flex-1 flex-col rounded-xl border border-edge bg-surface p-4 md:p-5">
+    <div className="flex flex-1 flex-col rounded-xl border border-border bg-background p-4 md:p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sub font-semibold text-fg md:text-base">{title}</h2>
+        <h2 className="text-sub font-semibold text-foreground md:text-base">{title}</h2>
         <div className="flex items-center gap-2">
           {status === "saved" && <span className="text-xs text-status-success">Saved</span>}
           {status === "error" && <span className="text-xs text-status-error">Failed to save</span>}
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving || !isDirty}
-            className="rounded-md bg-surface-dark px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30"
+            size="sm"
+            className="px-3 py-1.5 text-xs font-medium"
           >
             {saving ? "Saving..." : "Save"}
-          </button>
+          </Button>
         </div>
       </div>
-      <textarea
+      <Textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
         rows={4}
-        className="w-full resize-y rounded-md border border-edge bg-surface px-3 py-2 text-md text-fg placeholder-fg-faint outline-none focus:border-fg-faint"
+        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-md text-foreground placeholder-muted-foreground/50 outline-none focus:border-muted-foreground/50"
       />
     </div>
   )

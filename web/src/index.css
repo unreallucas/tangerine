@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme {
   --color-tangerine: #f97316;
@@ -7,22 +11,19 @@
 
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
 
-  /* Semantic spacing scale — named to avoid colliding with Tailwind's container sizes (sm/md/lg/xl) */
-  /* Use these instead of arbitrary Tailwind spacing for consistent layout rhythm */
-  --spacing-tight: 0.5rem;    /* stacked items, minor padding (~8px) */
-  --spacing-snug: 0.75rem;    /* icon-label gap, row gap (~12px) */
-  --spacing-normal: 1rem;     /* panel padding, container gaps (~16px) */
-  --spacing-relaxed: 1.5rem;  /* section gaps, card padding (~24px) */
-  --spacing-loose: 2rem;      /* empty states, page sections (~32px) */
+  /* Semantic spacing scale */
+  --spacing-tight: 0.5rem;
+  --spacing-snug: 0.75rem;
+  --spacing-normal: 1rem;
+  --spacing-relaxed: 1.5rem;
+  --spacing-loose: 2rem;
 
-  /* Semantic font size scale — extends Tailwind defaults (xs=0.75rem, sm=0.875rem, base=1rem, lg=1.125rem, xl=1.25rem, 2xl=1.5rem) */
-  /* rem units respect user browser font size preferences (WCAG 1.4.4) */
-  /* Minimum sizes follow WCAG accessibility guidance: 11px absolute floor, 12px for captions/labels */
-  --text-2xs: 0.6875rem; /* badge/pill/tag labels (~11px) */
-  --text-xxs: 0.75rem;   /* secondary metadata: timestamps, IDs, hints (~12px) — same as text-xs */
-  --text-md: 0.8125rem;  /* primary compact UI body text (~13px) */
-  --text-sub: 0.9375rem; /* minor headings: section titles, app name (~15px) */
-  --text-3xl: 1.75rem;   /* large stat/display numbers (~28px) */
+  /* Semantic font size scale */
+  --text-2xs: 0.6875rem;
+  --text-xxs: 0.75rem;
+  --text-md: 0.8125rem;
+  --text-sub: 0.9375rem;
+  --text-3xl: 1.75rem;
 
   /* Semantic surface colors */
   --color-surface: #fafafa;
@@ -117,6 +118,26 @@
 
   --color-modified: #fbbf24;
   --color-modified-bg: rgba(251, 191, 36, 0.15);
+
+  /* shadcn dark vars — mapped to custom theme */
+  --background: var(--color-surface);
+  --foreground: var(--color-fg);
+  --card: var(--color-surface-card);
+  --card-foreground: var(--color-fg);
+  --popover: var(--color-surface-card);
+  --popover-foreground: var(--color-fg);
+  --primary: var(--color-surface-dark);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-surface-secondary);
+  --secondary-foreground: var(--color-fg);
+  --muted: var(--color-surface-secondary);
+  --muted-foreground: var(--color-fg-muted);
+  --accent: var(--color-surface-secondary);
+  --accent-foreground: var(--color-fg);
+  --destructive: var(--color-status-error);
+  --border: var(--color-edge);
+  --input: var(--color-edge);
+  --ring: var(--color-fg-muted);
 }
 
 html, body {
@@ -165,3 +186,81 @@ body {
 .animate-thinking-dot:nth-child(1) { animation: thinking-bounce 1.4s ease-in-out infinite 0s; }
 .animate-thinking-dot:nth-child(2) { animation: thinking-bounce 1.4s ease-in-out infinite 0.2s; }
 .animate-thinking-dot:nth-child(3) { animation: thinking-bounce 1.4s ease-in-out infinite 0.4s; }
+
+/* shadcn theme infrastructure — maps to custom theme values */
+@theme inline {
+  --font-heading: "Inter", system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* shadcn vars mapped to custom theme */
+  --background: var(--color-surface);
+  --foreground: var(--color-fg);
+  --card: var(--color-surface-card);
+  --card-foreground: var(--color-fg);
+  --popover: var(--color-surface-card);
+  --popover-foreground: var(--color-fg);
+  --primary: var(--color-surface-dark);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-surface-secondary);
+  --secondary-foreground: var(--color-fg);
+  --muted: var(--color-surface-secondary);
+  --muted-foreground: var(--color-fg-muted);
+  --accent: var(--color-surface-secondary);
+  --accent-foreground: var(--color-fg);
+  --destructive: var(--color-status-error);
+  --border: var(--color-edge);
+  --input: var(--color-edge);
+  --ring: var(--color-fg-muted);
+  --radius: 0.5rem;
+  --sidebar: var(--color-surface);
+  --sidebar-foreground: var(--color-fg);
+  --sidebar-primary: var(--color-surface-dark);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-surface-secondary);
+  --sidebar-accent-foreground: var(--color-fg);
+  --sidebar-border: var(--color-edge);
+  --sidebar-ring: var(--color-fg-muted);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
