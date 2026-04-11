@@ -81,6 +81,17 @@ export function Layout() {
               >
                 Status
               </Link>
+              {!isRoot && (
+                <button
+                  onClick={() => navigate("/?focus=1")}
+                  aria-label="New Run"
+                  className="ml-1 flex h-7 w-7 items-center justify-center rounded-md bg-surface-dark text-white"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </button>
+              )}
             </nav>
           </div>
         </div>
