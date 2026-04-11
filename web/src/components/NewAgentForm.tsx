@@ -7,6 +7,9 @@ import { ReasoningEffortSelector, type ReasoningEffort } from "./ReasoningEffort
 import { MentionPicker } from "./MentionPicker"
 import { useMentionPicker } from "../hooks/useMentionPicker"
 import { useTasks } from "../hooks/useTasks"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 interface NewAgentFormProps {
   onSubmit: (data: { projectId: string; title: string; description?: string; branch?: string; provider?: string; model?: string; reasoningEffort?: string; parentTaskId?: string; type?: string; images?: PromptImage[] }) => void
@@ -140,9 +143,6 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
 
   useEffect(() => {
     if (prevDraftKeyRef.current !== draftKey) {
-      // Project (or refTask) changed — save old draft under the OLD key first,
-      // then load the new draft. This prevents data loss if React batches the
-      // text change with the project switch (skipping the intermediate save).
       const oldKey = prevDraftKeyRef.current
       try {
         if (!description && !customBranch && pendingImages.length === 0 && taskType === "worker") {
@@ -216,50 +216,51 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
   const handleSubmit = handleCodeSubmit
 
   return (
-    <div className="flex flex-1 flex-col bg-surface md:h-full">
+    <div className="flex flex-1 flex-col bg-background md:h-full">
       {/* Desktop: centered card layout / Mobile: full-width scrollable */}
       <div className="flex flex-1 flex-col items-center px-4 pt-6 pb-6 md:overflow-y-auto md:justify-center md:p-12">
         <div className="flex w-full max-w-[640px] flex-col gap-6">
           {/* Heading */}
           <div className="flex flex-col gap-2">
-            <h1 className="text-xl font-semibold text-fg md:text-center md:text-2xl md:font-bold">
+            <h1 className="text-xl font-semibold text-foreground md:text-center md:text-2xl md:font-bold">
               What should the agent work on?
             </h1>
-            <p className="text-center text-sm leading-[1.6] text-fg-muted">
+            <p className="text-center text-sm leading-[1.6] text-muted-foreground">
               Describe a task, bug, or feature. The agent will read your codebase and get to work.
             </p>
           </div>
 
           {/* Worker / Reviewer toggle */}
           <div className="flex justify-center">
-            <div className="inline-flex rounded-lg border border-edge bg-surface-secondary p-0.5">
-              <button
-                type="button"
+            <div className="inline-flex rounded-lg border border-border bg-muted p-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setTaskType("worker")}
-                className={`rounded-md px-4 py-1.5 text-md font-medium transition ${taskType === "worker" ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
-              >Worker</button>
-              <button
-                type="button"
+                className={`rounded-md px-4 py-1.5 text-md font-medium ${taskType === "worker" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >Worker</Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setTaskType("reviewer")}
-                className={`rounded-md px-4 py-1.5 text-md font-medium transition ${taskType === "reviewer" ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
-              >Reviewer</button>
+                className={`rounded-md px-4 py-1.5 text-md font-medium ${taskType === "reviewer" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >Reviewer</Button>
             </div>
           </div>
 
           {/* Reference badge */}
           {refTaskId && (
-            <div className="flex items-center gap-2 rounded-lg border border-accent-border bg-accent-bg px-3 py-2">
-              <svg className="h-3.5 w-3.5 shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 px-3 py-2">
+              <svg className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
               </svg>
-              <span className="min-w-0 truncate text-xs text-accent-text">
+              <span className="min-w-0 truncate text-xs text-blue-700 dark:text-blue-300">
                 Continuing from: <span className="font-medium">{refTaskTitle || refTaskId}</span>
               </span>
-              <span className="ml-auto font-mono text-2xs text-accent-muted">{refTaskId.slice(0, 8)}</span>
+              <span className="ml-auto font-mono text-2xs text-blue-400 dark:text-blue-500">{refTaskId.slice(0, 8)}</span>
             </div>
           )}
 
-          {/* gh CLI warning for GitHub-backed projects */}
           {/* gh CLI warning for GitHub-backed projects */}
           {(() => {
             if (!systemCapabilities || !current?.repo || !isGithubRepo(current.repo)) return null
@@ -280,16 +281,16 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
           })()}
 
           {/* Input card */}
-          <div className="overflow-visible rounded-xl border border-edge bg-surface">
+          <div className="overflow-visible rounded-xl border border-border bg-background">
             {pendingImages.length > 0 && (
               <div className="flex flex-wrap gap-1.5 px-4 pt-3">
                 {pendingImages.map((img, i) => (
                   <div key={i} className="relative">
-                    <img src={img.dataUrl} alt="Pasted image" className="h-14 w-14 rounded-md border border-edge object-cover" />
+                    <img src={img.dataUrl} alt="Pasted image" className="h-14 w-14 rounded-md border border-border object-cover" />
                     <button
                       onClick={() => removeImage(i)}
                       aria-label="Remove image"
-                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-2xs text-surface"
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-2xs text-background"
                     >×</button>
                   </div>
                 ))}
@@ -304,7 +305,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
                   onHover={(i) => mention.setSelectedIndex(i)}
                 />
               )}
-              <textarea
+              <Textarea
                 ref={textareaRef}
                 autoFocus={autoFocus}
                 value={description}
@@ -332,26 +333,21 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
                 onPaste={handlePaste}
                 placeholder="Describe the task, paste an issue URL, or continue work on a branch/PR..."
                 rows={4}
-                className="w-full resize-none border-0 bg-transparent px-4 pt-4 pb-2 text-base leading-[1.6] text-fg placeholder-fg-muted outline-none md:text-sm"
+                className="w-full resize-none rounded-none border-0 bg-transparent px-4 pt-4 pb-2 text-base leading-[1.6] text-foreground placeholder-muted-foreground shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:border-0 md:text-sm"
               />
             </div>
             {/* Inline controls below textarea */}
-            <div className="flex flex-col gap-2.5 overflow-visible border-t border-edge px-3 py-2.5">
+            <div className="flex flex-col gap-2.5 overflow-visible border-t border-border px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2 overflow-visible">
                 <HarnessSelector value={provider} onChange={handleProviderChange} systemCapabilities={systemCapabilities} />
-                <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-edge px-2 py-1">
-                  <svg className="h-3 w-3 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0-12.814a2.25 2.25 0 1 0 0-2.186m0 2.186a2.25 2.25 0 1 0 0 2.186" />
-                  </svg>
-                  <input
-                    type="text"
-                    value={customBranch}
-                    onChange={(e) => setCustomBranch(e.target.value)}
-                    placeholder={branch}
-                    aria-label="Branch or PR"
-                    className="max-w-[160px] bg-transparent text-xxs text-fg placeholder-fg-muted outline-none"
-                  />
-                </div>
+                <Input
+                  type="text"
+                  value={customBranch}
+                  onChange={(e) => setCustomBranch(e.target.value)}
+                  placeholder={branch}
+                  aria-label="Branch or PR"
+                  className="h-7 max-w-[180px] text-sm"
+                />
                 <ModelSelector
                   models={providerModels}
                   model={activeModel}
@@ -360,16 +356,16 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
                 />
                 <ReasoningEffortSelector value={reasoningEffort} onChange={(e) => { setReasoningEffort(e); savePrefs({ reasoningEffort: e }) }} provider={provider} />
               </div>
-              <button
+              <Button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="flex w-full items-center justify-center gap-1.5 rounded-md bg-surface-dark px-4 py-2.5 text-white transition hover:opacity-80 disabled:opacity-30"
+                className="flex w-full items-center justify-center gap-1.5 rounded-md px-4 py-2.5"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
                 </svg>
                 <span className="text-sm font-semibold">Start Agent</span>
-              </button>
+              </Button>
             </div>
           </div>
 

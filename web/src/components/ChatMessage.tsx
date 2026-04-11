@@ -1,4 +1,5 @@
 import { memo, useState, useMemo, useCallback, useRef } from "react"
+import { Button } from "@/components/ui/button"
 import type { Components } from "react-markdown"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -34,16 +35,18 @@ function MessageActionsBar({ actions, align = "start" }: { actions: MessageActio
       className={`absolute bottom-0 translate-y-full ${align === "end" ? "right-0" : "left-0"} flex gap-0.5 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [.actions-open_&]:opacity-100 [.actions-open_&]:pointer-events-auto`}
     >
       {actions.map((action) => (
-        <button
+        <Button
           key={action.key}
+          variant="ghost"
+          size="xs"
           onClick={action.onClick}
           title={action.label}
           aria-label={action.label}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xxs text-fg-muted transition hover:bg-surface-secondary hover:text-fg"
+          className="text-muted-foreground hover:text-foreground"
         >
           {action.icon}
           <span>{action.label}</span>
-        </button>
+        </Button>
       ))}
     </div>
   )
@@ -67,38 +70,38 @@ const markdownComponents: Components = {
   h4: ({ children }) => <h4 className="mt-3 mb-1 text-md font-semibold">{children}</h4>,
   p: ({ children }) => <p className="my-1">{children}</p>,
   pre: ({ children }) => (
-    <pre className="my-2 rounded-md bg-surface-secondary p-3 font-mono text-xxs leading-[1.6] overflow-x-auto border border-edge">
+    <pre className="my-2 rounded-md bg-muted p-3 font-mono text-xxs leading-[1.6] overflow-x-auto border border-border">
       {children}
     </pre>
   ),
   code: ({ children, className }) => {
     // Inline code (no className means not inside a code block)
     if (!className) {
-      return <code className="rounded bg-surface-secondary px-1 py-0.5 font-mono text-xs border border-edge">{children}</code>
+      return <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs border border-border">{children}</code>
     }
     return <code className={className}>{children}</code>
   },
   ul: ({ children }) => <ul className="my-1 ml-4 list-disc space-y-0.5">{children}</ul>,
   ol: ({ children }) => <ol className="my-1 ml-4 list-decimal space-y-0.5">{children}</ol>,
   blockquote: ({ children }) => (
-    <blockquote className="my-1 border-l-2 border-edge pl-3 text-fg-muted">{children}</blockquote>
+    <blockquote className="my-1 border-l-2 border-border pl-3 text-muted-foreground">{children}</blockquote>
   ),
-  hr: () => <hr className="my-2 border-edge" />,
+  hr: () => <hr className="my-2 border-border" />,
   a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-link hover:text-link-hover break-all">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 break-all">
       {children}
     </a>
   ),
   table: ({ children }) => (
-    <div className="my-2 overflow-x-auto rounded-md border border-edge">
-      <table className="w-full border-collapse text-fg">{children}</table>
+    <div className="my-2 overflow-x-auto rounded-md border border-border">
+      <table className="w-full border-collapse text-foreground">{children}</table>
     </div>
   ),
   th: ({ children }) => (
-    <th className="px-3 py-1.5 text-left text-xxs font-semibold text-fg-muted">{children}</th>
+    <th className="px-3 py-1.5 text-left text-xxs font-semibold text-muted-foreground">{children}</th>
   ),
   td: ({ children }) => <td className="px-3 py-1.5 text-xs">{children}</td>,
-  tr: ({ children }) => <tr className="border-t border-edge">{children}</tr>,
+  tr: ({ children }) => <tr className="border-t border-border">{children}</tr>,
 }
 
 // Negative lookbehind/lookahead for `/` prevents linkifying UUIDs inside URL paths
@@ -235,7 +238,7 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
   if (isUser) {
     return (
       <div ref={messageRef} onClick={handleGroupClick} className="animate-fade-in group relative flex flex-col items-end gap-0.5">
-        <div className="max-w-[280px] md:max-w-[480px] rounded-xl bg-surface-dark px-3.5 py-2.5">
+        <div className="max-w-[280px] md:max-w-[480px] rounded-xl bg-primary px-3.5 py-2.5">
           {message.images && message.images.length > 0 && (
             <>
               <div className="mb-2 flex flex-wrap gap-1">
@@ -260,7 +263,7 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
           )}
           {message.content && (
             <div
-              className="text-md leading-[1.5] text-white [&_a]:underline [&_a]:text-link hover:[&_a]:text-link-hover [&_a]:break-all [&_code]:bg-white/15 [&_code]:border-white/20 [&_pre]:bg-white/10 [&_pre]:border-white/15 [&_blockquote]:border-white/30 [&_blockquote]:text-white/70"
+              className="text-md leading-[1.5] text-primary-foreground [&_a]:underline [&_a]:text-blue-600 [&_a]:dark:text-blue-400 hover:[&_a]:text-blue-800 dark:hover:[&_a]:text-blue-300 [&_a]:break-all [&_code]:bg-primary-foreground/15 [&_code]:border-primary-foreground/20 [&_pre]:bg-primary-foreground/10 [&_pre]:border-primary-foreground/15 [&_blockquote]:border-primary-foreground/30 [&_blockquote]:text-primary-foreground/70"
               onClick={handleLinkClick}
             >
               <ReactMarkdown remarkPlugins={userRemarkPlugins} components={markdownComponents}>
@@ -268,7 +271,7 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
               </ReactMarkdown>
             </div>
           )}
-          <span className="mt-1 block text-right text-2xs text-fg-muted/50">
+          <span className="mt-1 block text-right text-2xs text-primary-foreground/50">
             {formatTimestamp(message.timestamp)}
           </span>
         </div>
@@ -280,10 +283,10 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
   if (isSystem) {
     return (
       <div className="animate-fade-in flex items-center justify-center gap-2">
-        <svg className="h-3 w-3 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="h-3 w-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0" />
         </svg>
-        <span className="text-xxs text-fg-muted">{message.content}</span>
+        <span className="text-xxs text-muted-foreground">{message.content}</span>
       </div>
     )
   }
@@ -299,9 +302,9 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
             </svg>
           </div>
           <span className="text-xs font-medium text-amber-500/70">Thinking</span>
-          <span className="text-2xs text-fg-muted/50">{formatTimestamp(message.timestamp)}</span>
+          <span className="text-2xs text-muted-foreground/50">{formatTimestamp(message.timestamp)}</span>
         </div>
-        <div className="rounded-lg border border-amber-500/10 bg-amber-500/5 px-3 py-2 text-xs italic leading-[1.6] text-fg-muted break-words">
+        <div className="rounded-lg border border-amber-500/10 bg-amber-500/5 px-3 py-2 text-xs italic leading-[1.6] text-muted-foreground break-words">
           {message.content}
         </div>
       </div>
@@ -319,9 +322,9 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
             </svg>
           </div>
           <span className="text-xs font-medium text-blue-500/70">Narration</span>
-          <span className="text-2xs text-fg-muted/50">{formatTimestamp(message.timestamp)}</span>
+          <span className="text-2xs text-muted-foreground/50">{formatTimestamp(message.timestamp)}</span>
         </div>
-        <div className="rounded-lg border border-blue-500/10 bg-blue-500/5 px-3 py-2 text-xs leading-[1.6] text-fg-muted break-words" onClick={handleLinkClick}>
+        <div className="rounded-lg border border-blue-500/10 bg-blue-500/5 px-3 py-2 text-xs leading-[1.6] text-muted-foreground break-words" onClick={handleLinkClick}>
           <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
             {message.content}
           </ReactMarkdown>
@@ -348,15 +351,15 @@ export const ChatMessage = memo(function ChatMessage({ message, tasks, onReply }
   return (
     <div ref={messageRef} onClick={handleGroupClick} className="animate-fade-in group relative flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <div className="flex h-5 w-5 items-center justify-center rounded-[10px] bg-surface-dark">
+        <div className="flex h-5 w-5 items-center justify-center rounded-[10px] bg-primary">
           <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-.772.13a18.142 18.142 0 0 1-6.126 0l-.772-.13c-1.717-.293-2.3-2.379-1.067-3.61L13 15" />
           </svg>
         </div>
-        <span className="text-xs font-semibold text-fg">Agent</span>
-        <span className="text-2xs text-fg-muted/50">{formatTimestamp(message.timestamp)}</span>
+        <span className="text-xs font-semibold text-foreground">Agent</span>
+        <span className="text-2xs text-muted-foreground/50">{formatTimestamp(message.timestamp)}</span>
       </div>
-      <div className="text-md leading-[1.6] text-fg break-words" onClick={handleLinkClick}>
+      <div className="text-md leading-[1.6] text-foreground break-words" onClick={handleLinkClick}>
         <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
           {message.content}
         </ReactMarkdown>

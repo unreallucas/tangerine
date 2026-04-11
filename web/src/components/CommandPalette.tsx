@@ -53,7 +53,7 @@ function TaskResult({ task, isSelected }: { task: Task; isSelected: boolean }) {
   return (
     <div
       className={`flex w-full items-center gap-snug px-normal py-2.5 text-left transition-colors ${
-        isSelected ? "bg-surface-secondary" : ""
+        isSelected ? "bg-muted" : ""
       }`}
     >
       <div
@@ -61,12 +61,12 @@ function TaskResult({ task, isSelected }: { task: Task; isSelected: boolean }) {
         style={{ backgroundColor: dotColor }}
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-md font-medium text-fg">{formatTaskTitle(task)}</p>
-        <p className="truncate text-xxs text-fg-muted">{task.projectId}</p>
+        <p className="truncate text-md font-medium text-foreground">{formatTaskTitle(task)}</p>
+        <p className="truncate text-xxs text-muted-foreground">{task.projectId}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {task.type !== "worker" && (
-          <span className="rounded bg-surface-secondary px-1.5 py-0.5 text-2xs font-medium text-fg-muted">
+          <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
             {task.type}
           </span>
         )}
@@ -77,8 +77,8 @@ function TaskResult({ task, isSelected }: { task: Task; isSelected: boolean }) {
         </span>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-0.5">
-        <span className="font-mono text-xxs text-fg-muted">{task.id.slice(0, 8)}</span>
-        <span className="text-xxs text-fg-muted">{formatRelativeTime(task.updatedAt)}</span>
+        <span className="font-mono text-xxs text-muted-foreground">{task.id.slice(0, 8)}</span>
+        <span className="text-xxs text-muted-foreground">{formatRelativeTime(task.updatedAt)}</span>
       </div>
     </div>
   )
@@ -88,27 +88,27 @@ function ActionResult({ action, isSelected }: { action: Action; isSelected: bool
   return (
     <div
       className={`flex w-full items-center gap-snug px-normal py-2.5 text-left transition-colors ${
-        isSelected ? "bg-surface-secondary" : ""
+        isSelected ? "bg-muted" : ""
       }`}
     >
       <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-        <svg className="h-4 w-4 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-md font-medium text-fg">{action.label}</p>
+        <p className="truncate text-md font-medium text-foreground">{action.label}</p>
         {action.description && (
-          <p className="truncate text-xxs text-fg-muted">{action.description}</p>
+          <p className="truncate text-xxs text-muted-foreground">{action.description}</p>
         )}
       </div>
       {action.section && (
-        <span className="shrink-0 rounded bg-surface-secondary px-1.5 py-0.5 text-2xs font-medium text-fg-muted">
+        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
           {action.section}
         </span>
       )}
       {action.shortcut && (
-        <kbd className="shrink-0 rounded border border-edge bg-surface-secondary px-1.5 py-0.5 font-mono text-2xs text-fg-muted">
+        <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-2xs text-muted-foreground">
           {formatShortcut(action.shortcut)}
         </kbd>
       )}
@@ -294,13 +294,13 @@ export function CommandPalette() {
       onClick={close}
     >
       <div
-        className="mx-4 w-full max-w-xl overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl"
+        className="mx-4 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-snug border-b border-edge px-normal">
+        <div className="flex items-center gap-snug border-b border-border px-normal">
           <svg
-            className="h-4 w-4 shrink-0 text-fg-muted"
+            className="h-4 w-4 shrink-0 text-muted-foreground"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -318,12 +318,12 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-transparent py-3.5 text-sm text-fg placeholder:text-fg-muted outline-none"
+            className="w-full bg-transparent py-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="shrink-0 text-fg-muted hover:text-fg"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -336,7 +336,7 @@ export function CommandPalette() {
         {/* Results list */}
         <div ref={listRef} className="max-h-[400px] overflow-y-auto py-1">
           {items.length === 0 ? (
-            <div className="px-normal py-loose text-center text-md text-fg-muted">
+            <div className="px-normal py-loose text-center text-md text-muted-foreground">
               {searchQuery ? "No results" : "No active tasks"}
             </div>
           ) : (
@@ -362,7 +362,7 @@ export function CommandPalette() {
         </div>
 
         {/* Footer shortcuts hint */}
-        <div className="flex items-center gap-snug border-t border-edge px-normal py-tight text-xxs text-fg-muted">
+        <div className="flex items-center gap-snug border-t border-border px-normal py-tight text-xxs text-muted-foreground">
           <span>
             <kbd className="font-sans">↵</kbd> select
           </span>

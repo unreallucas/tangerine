@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react"
 import { isProviderAvailable as checkProvider, type ProviderType, type SystemCapabilities } from "@tangerine/shared"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select"
+import { Terminal } from "lucide-react"
 
 interface HarnessSelectorProps {
   value: ProviderType
@@ -16,82 +17,44 @@ const harnesses: { value: ProviderType; label: string }[] = [
 
 export function HarnessSelector({ value, onChange, systemCapabilities: capsRaw }: HarnessSelectorProps) {
   const systemCapabilities = capsRaw ?? null
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [open])
-
-  const current = harnesses.find((h) => h.value === value) ?? harnesses[0]!
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-md border border-edge bg-surface-secondary px-2 py-1 transition hover:bg-surface"
-      >
-        <svg className="h-3 w-3 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m5.25 4.5 7.5 7.5-7.5 7.5m6 0h6.75" />
-        </svg>
-        <span className="text-xxs font-medium text-fg">{current.label}</span>
-        {!checkProvider(systemCapabilities, value) && (
-          <span className="text-2xs text-status-error-text">(not installed)</span>
-        )}
-        <svg
-          className={`h-2.5 w-2.5 text-fg-muted transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-        </svg>
-      </button>
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        if (v) onChange(v as ProviderType)
+      }}
+    >
+      <SelectTrigger size="sm">
 
-      {open && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 min-w-[160px] overflow-hidden rounded-lg border border-edge bg-surface-card shadow-lg">
+        <Terminal className="h-3 w-3 text-muted-foreground" />
+        <SelectValue>
+          {harnesses.find((h) => h.value === value)?.label ?? value}
+          {!checkProvider(systemCapabilities, value) && (
+            <span className="text-2xs text-status-error-text">(not installed)</span>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+
+      <SelectContent side="top" align="start" alignItemWithTrigger={false} className="min-w-[160px]">
+        <SelectGroup>
           {harnesses.map((h) => {
-            const isActive = h.value === value
             const available = checkProvider(systemCapabilities, h.value)
             const cliCmd = systemCapabilities?.providers[h.value]?.cliCommand
             return (
-              <button
+              <SelectItem
                 key={h.value}
-                onClick={() => {
-                  if (!available) return
-                  onChange(h.value)
-                  setOpen(false)
-                }}
+                value={h.value}
                 disabled={!available}
                 title={!available ? `Requires ${cliCmd ?? h.value} CLI` : undefined}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition ${
-                  !available
-                    ? "cursor-not-allowed opacity-40"
-                    : isActive ? "bg-surface-secondary font-medium text-fg" : "text-fg-muted hover:bg-surface"
-                }`}
               >
-                <div className="flex items-center gap-2">
-                  <svg className="h-3 w-3 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m5.25 4.5 7.5 7.5-7.5 7.5m6 0h6.75" />
-                  </svg>
-                  <span>{h.label}</span>
-                  {!available && <span className="text-2xs text-fg-muted">(not installed)</span>}
-                </div>
-                {isActive && available && (
-                  <svg className="h-3 w-3 text-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                  </svg>
-                )}
-              </button>
+                <span>{h.label}</span>
+                {!available && <span className="text-2xs text-muted-foreground">(not installed)</span>}
+              </SelectItem>
             )
           })}
-        </div>
-      )}
-    </div>
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   )
 }

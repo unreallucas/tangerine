@@ -90,7 +90,7 @@ export function TerminalToolbar({ termRef, onInput }: TerminalToolbarProps) {
 
   return (
     <div className="md:hidden">
-      <div className="flex gap-1.5 overflow-x-auto border-t border-edge bg-surface-secondary px-2 py-1.5">
+      <div className="flex gap-1.5 overflow-x-auto border-t border-border bg-muted px-2 py-1.5">
         {keys.map((key) => (
           <button
             key={key.label}
@@ -100,19 +100,19 @@ export function TerminalToolbar({ termRef, onInput }: TerminalToolbarProps) {
               handlePress(key)
             }}
             aria-label={key.ariaLabel ?? key.label}
-            className="shrink-0 rounded-md border border-edge bg-surface px-2 py-1 text-xs font-medium text-fg-muted active:bg-surface-card active:text-fg"
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground active:bg-card active:text-foreground"
           >
             {key.label}
           </button>
         ))}
       </div>
       {showPasteInput && (
-        <div className="flex items-center gap-2 border-t border-edge bg-surface-secondary px-2 py-1.5">
+        <div className="flex items-center gap-2 border-t border-border bg-muted px-2 py-1.5">
           <textarea
             ref={pasteRef}
             rows={1}
             placeholder="Paste here, then tap Send"
-            className="min-h-[32px] flex-1 resize-none rounded-md border border-edge bg-surface px-2 py-1 text-xs text-fg placeholder:text-fg-muted"
+            className="min-h-[32px] flex-1 resize-none rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault()
@@ -132,7 +132,7 @@ export function TerminalToolbar({ termRef, onInput }: TerminalToolbarProps) {
               termRef.current?.focus()
             }}
             aria-label="Cancel paste"
-            className="shrink-0 rounded-md border border-edge bg-surface px-2 py-1 text-xs text-fg-muted active:bg-surface-card"
+            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground active:bg-card"
           >
             ✕
           </button>

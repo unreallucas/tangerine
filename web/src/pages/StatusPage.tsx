@@ -49,19 +49,19 @@ export function StatusPage() {
           {/* Title + project selector */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-fg md:text-2xl">System Status</h1>
+              <h1 className="text-xl font-semibold text-foreground md:text-2xl">System Status</h1>
               <select
                 value={current?.name ?? ""}
                 onChange={(e) => switchProject(e.target.value, { replace: true })}
                 aria-label="Select project"
-                className="rounded-md border border-edge bg-surface px-2.5 py-1 text-md text-fg outline-none focus-visible:ring-1 focus-visible:ring-fg-muted"
+                className="rounded-md border border-border bg-background px-2.5 py-1 text-md text-foreground outline-none focus-visible:ring-1 focus-visible:ring-muted-foreground"
               >
                 {projects.map((p) => (
                   <option key={p.name} value={p.name}>{p.name}</option>
                 ))}
               </select>
             </div>
-            <p className="hidden text-sm text-fg-muted md:block">Infrastructure health for {current?.name ?? "the current project"}</p>
+            <p className="hidden text-sm text-muted-foreground md:block">Infrastructure health for {current?.name ?? "the current project"}</p>
           </div>
 
           {/* Project update + Active runs */}
@@ -134,7 +134,7 @@ export function StatusPage() {
               ) : (
                 <button
                   onClick={handleArchive}
-                  className="text-sm text-fg-muted transition hover:text-fg"
+                  className="text-sm text-muted-foreground transition hover:text-foreground"
                 >
                   Archive project
                 </button>

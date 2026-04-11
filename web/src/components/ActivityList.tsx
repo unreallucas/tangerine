@@ -9,7 +9,7 @@ interface ActivityListProps {
 
 export function ActivityList({ activities, variant = "compact" }: ActivityListProps) {
   if (activities.length === 0) {
-    return <div className="py-8 text-center text-xs text-fg-muted">No activity yet</div>
+    return <div className="py-8 text-center text-xs text-muted-foreground">No activity yet</div>
   }
 
   // Show newest activity first so users don't have to scroll to see latest events
@@ -22,8 +22,8 @@ export function ActivityList({ activities, variant = "compact" }: ActivityListPr
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="font-mono text-xxs font-semibold tracking-wider text-fg-muted">ACTIVITY</span>
-        <span className="font-mono text-xxs font-medium text-fg-muted">{activities.length}</span>
+        <span className="font-mono text-xxs font-semibold tracking-wider text-muted-foreground">ACTIVITY</span>
+        <span className="font-mono text-xxs font-medium text-muted-foreground">{activities.length}</span>
       </div>
       <div className="flex flex-col">
         {reversed.map((entry, i) => (
@@ -59,14 +59,14 @@ function ActivityItem({ entry, isLast }: { entry: ActivityEntry; isLast: boolean
       <div className="min-w-0 flex-1">
         {style.label ? (
           <>
-            <p className="text-xs font-medium leading-tight text-fg">{style.label}</p>
-            <p className="mt-0.5 line-clamp-2 break-all font-mono text-xxs text-fg-muted" title={detail}>{detail}</p>
+            <p className="text-xs font-medium leading-tight text-foreground">{style.label}</p>
+            <p className="mt-0.5 line-clamp-2 break-all font-mono text-xxs text-muted-foreground" title={detail}>{detail}</p>
           </>
         ) : (
-          <p className="line-clamp-2 break-all font-mono text-xs leading-tight text-fg">{detail}</p>
+          <p className="line-clamp-2 break-all font-mono text-xs leading-tight text-foreground">{detail}</p>
         )}
         <StatusRow meta={meta} isRunning={isRunning && isLast} />
-        <span className="mt-0.5 block text-2xs text-fg-faint">
+        <span className="mt-0.5 block text-2xs text-muted-foreground/50">
           {formatTimestamp(entry.timestamp)}
         </span>
       </div>
@@ -113,7 +113,7 @@ function StatusRow({ meta, isRunning }: { meta: Record<string, unknown> | null; 
   if (isRunning) {
     return (
       <div className="mt-1">
-        <span className="rounded bg-accent-bg px-1.5 py-0.5 text-2xs font-medium text-accent">
+        <span className="rounded bg-blue-50 dark:bg-blue-950/20 px-1.5 py-0.5 text-2xs font-medium text-blue-600 dark:text-blue-400">
           in progress
         </span>
       </div>
@@ -148,7 +148,7 @@ function TimelineView({ activities }: { activities: ActivityEntry[] }) {
     <div className="h-full overflow-y-auto px-4 py-4">
       {groups.map((group) => (
         <div key={group.label} className="mb-6">
-          <div className="mb-3 text-xs font-semibold text-fg-faint">{group.label}</div>
+          <div className="mb-3 text-xs font-semibold text-muted-foreground/50">{group.label}</div>
           <div className="flex flex-col gap-4">
             {group.items.map((entry) => {
               const style = getActivityStyle(entry.event)
@@ -166,16 +166,16 @@ function TimelineView({ activities }: { activities: ActivityEntry[] }) {
                         ))}
                       </svg>
                     </div>
-                    <div className="mt-1 w-px flex-1 bg-edge" />
+                    <div className="mt-1 w-px flex-1 bg-border" />
                   </div>
                   <div className="min-w-0 flex-1 pb-2">
                     {style.label ? (
                       <>
-                        <p className="text-md font-medium leading-tight text-fg">{style.label}</p>
-                        <p className="mt-0.5 text-xxs text-fg-faint">{detail}</p>
+                        <p className="text-md font-medium leading-tight text-foreground">{style.label}</p>
+                        <p className="mt-0.5 text-xxs text-muted-foreground/50">{detail}</p>
                       </>
                     ) : (
-                      <p className="text-md leading-tight text-fg">{detail}</p>
+                      <p className="text-md leading-tight text-foreground">{detail}</p>
                     )}
                   </div>
                 </div>

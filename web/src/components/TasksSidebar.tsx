@@ -2,11 +2,23 @@ import { useMemo, useState, useCallback, useEffect } from "react"
 import { Link, useParams, useNavigate } from "react-router-dom"
 import { TERMINAL_STATUSES } from "@tangerine/shared"
 import type { Task, ProjectConfig } from "@tangerine/shared"
+import { Search, Plus, X } from "lucide-react"
 import { getStatusConfig, hasUnseenUpdates } from "../lib/status"
 import { formatRelativeTime } from "../lib/format"
 import { useProject } from "../context/ProjectContext"
 import { ensureOrchestrator } from "../lib/api"
 import { TaskOverflowMenu } from "./TaskListItem"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface TasksSidebarProps {
   tasks: Task[]
@@ -61,8 +73,8 @@ function TaskItem({
       to={`/tasks/${task.id}?project=${encodeURIComponent(task.projectId)}`}
       className={`group flex items-start gap-2.5 px-4 py-2.5 ${
         isActive
-          ? "bg-surface-secondary border-l-[3px] border-l-status-error"
-          : "hover:bg-surface-secondary"
+          ? "bg-muted border-l-[3px] border-l-status-error"
+          : "hover:bg-muted"
       }`}
       style={isActive ? {} : { borderLeft: "3px solid transparent" }}
     >
@@ -71,23 +83,23 @@ function TaskItem({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
-          <span className={`truncate text-md text-fg ${isActive ? "font-semibold" : "font-medium"}`}>
+          <span className={`truncate text-md text-foreground ${isActive ? "font-semibold" : "font-medium"}`}>
             {task.title}
           </span>
           {unseen && (
             <span className="h-2 w-2 shrink-0 rounded-full bg-status-info" title="New activity" />
           )}
         </div>
-        <span className="font-mono text-xxs text-fg-muted">
+        <span className="font-mono text-xxs text-muted-foreground">
           {formatRelativeTime(task.createdAt)} · {task.status === "running" && task.agentStatus === "idle" ? "idle" : task.status}
           {" · "}
-          <span className="rounded bg-surface-secondary px-1 py-px text-2xs">
+          <span className="rounded bg-muted px-1 py-px text-2xs">
             {providerMetadata[task.provider]?.abbreviation ?? task.provider}
           </span>
           {task.type !== "worker" && (
             <>
               {" · "}
-              <span className="rounded bg-surface-secondary px-1 py-px text-2xs">
+              <span className="rounded bg-muted px-1 py-px text-2xs">
                 {task.type}
               </span>
             </>
@@ -121,16 +133,16 @@ function ProjectGroupHeader({
   const [creating, setCreating] = useState(false)
   const projectQs = `?project=${encodeURIComponent(group.projectName)}`
 
-  const baseClass = "flex w-full items-center gap-2.5 border-t border-edge bg-surface-secondary/50 px-4 py-2 text-left"
-  const activeClass = isActive ? "border-l-[3px] border-l-status-error" : "hover:bg-surface-secondary"
+  const baseClass = "flex w-full items-center gap-2.5 border-t border-border bg-muted/50 px-4 py-2 text-left"
+  const activeClass = isActive ? "border-l-[3px] border-l-status-error" : "hover:bg-muted"
 
   const content = (
     <>
-      <span className="truncate text-md font-semibold text-fg">
+      <span className="truncate text-md font-semibold text-foreground">
         {group.projectName}
       </span>
-      <div className="flex items-center justify-center rounded-sm bg-surface-secondary px-1.5 py-px">
-        <span className="font-mono text-2xs text-fg-muted">{group.tasks.length}</span>
+      <div className="flex items-center justify-center rounded-sm bg-muted px-1.5 py-px">
+        <span className="font-mono text-2xs text-muted-foreground">{group.tasks.length}</span>
       </div>
     </>
   )
@@ -161,7 +173,7 @@ function ProjectGroupHeader({
           setCreating(false)
         }
       }}
-      className={`${baseClass} hover:bg-surface-secondary`}
+      className={`${baseClass} hover:bg-muted`}
       style={{ borderLeft: "3px solid transparent" }}
     >
       {content}
@@ -261,76 +273,86 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
     })
   }, [])
 
-  const handleProjectFilterChange = useCallback((value: string) => {
-    setProjectFilter(value)
+  const handleProjectFilterChange = useCallback((value: string | null) => {
+    const resolvedValue = !value || value === "all" ? "" : value
+    setProjectFilter(resolvedValue)
     try {
-      if (value) localStorage.setItem(PROJECT_FILTER_KEY, value)
+      if (resolvedValue) localStorage.setItem(PROJECT_FILTER_KEY, resolvedValue)
       else localStorage.removeItem(PROJECT_FILTER_KEY)
     } catch { /* ignore */ }
   }, [])
 
   return (
-    <div className="flex h-full w-full shrink-0 flex-col border-r border-edge bg-surface md:w-[240px]">
+    <div className="flex h-full w-full shrink-0 flex-col border-r border-border bg-background md:w-[240px]">
       {/* Top section */}
       <div className="flex flex-col gap-3 p-4 pt-5">
-        <button
+        <Button
           onClick={onNewAgent}
-          className="hidden md:flex h-9 items-center justify-center gap-1.5 rounded-md bg-surface-dark text-white"
+          className="hidden md:flex"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
+          <Plus className="h-3.5 w-3.5" />
           <span className="text-md font-medium">New Run</span>
-        </button>
-        <div className="flex h-[34px] items-center gap-2 rounded-md border border-edge bg-surface px-2.5">
-          <svg className="h-3.5 w-3.5 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-          </svg>
-          <input
+        </Button>
+        <div className="flex h-[34px] items-center gap-2 rounded-md border border-border bg-background px-2.5">
+          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search tasks..."
-            className="min-w-0 flex-1 bg-transparent text-base text-fg placeholder-fg-muted outline-none focus-visible:outline-none md:text-md"
+            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-foreground placeholder:text-muted-foreground shadow-none outline-none focus-visible:ring-0 md:text-md"
           />
           {searchQuery && (
-            <button onClick={() => onSearchChange("")} aria-label="Clear search" className="shrink-0 text-fg-muted hover:text-fg">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onSearchChange("")}
+              aria-label="Clear search"
+              className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </Button>
           )}
         </div>
       </div>
 
       <div className="flex w-full shrink-0 items-center justify-between px-4 py-2.5">
-        <select
-          value={projectFilter}
-          onChange={(e) => handleProjectFilterChange(e.target.value)}
-          aria-label="Filter by project"
-          className="text-xxs font-medium tracking-wider text-fg-muted bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-fg-muted rounded"
+        <Select
+          value={projectFilter }
+          onValueChange={handleProjectFilterChange}
         >
-          <option value="">ALL PROJECTS</option>
-          {projects.filter((p) => !p.archived).map((p) => (
-            <option key={p.name} value={p.name}>{p.name.toUpperCase()}</option>
-          ))}
-        </select>
-        <button
+          <SelectTrigger
+            aria-label="Filter by project"
+            size="sm"
+          >
+            <SelectValue placeholder="All Projects" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem key={'all'} value={''}>All Projects</SelectItem>
+            <SelectGroup>
+              {projects.filter((p) => !p.archived).map((p) => (
+                <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Button
+          variant="default"
+          size="sm"
           onClick={handleToggleActiveOnly}
           aria-label={activeOnly && !isSearching ? "Show all runs" : "Show active runs only"}
-          className="flex items-center justify-center rounded-sm bg-surface-dark px-2 py-0.5 hover:opacity-80 focus-visible:ring-1 focus-visible:ring-fg-muted"
         >
-          <span className="font-mono text-xxs font-semibold text-white">
+          <span className="font-mono text-xs font-semibold">
             {activeOnly && !isSearching ? activeCount : totalCount}
           </span>
-        </button>
+        </Button>
       </div>
 
-      <div className="h-px bg-edge" />
+      <div className="h-px bg-border" />
 
-      <div className="md:flex-1 md:min-h-0 md:overflow-y-auto">
+      <ScrollArea className="md:flex-1 md:min-h-0">
         {groups.length === 0 ? (
-          <div className="px-4 py-3 text-xs text-fg-muted">No tasks</div>
+          <div className="px-4 py-3 text-xs text-muted-foreground">No tasks</div>
         ) : (
           groups.map((group) => (
             <div key={group.projectId}>
@@ -350,7 +372,7 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
             </div>
           ))
         )}
-      </div>
+      </ScrollArea>
     </div>
   )
 }

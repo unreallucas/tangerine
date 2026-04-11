@@ -19,7 +19,7 @@ export function SlashCommandPicker({ skills, selectedIndex, onSelect, onHover }:
 
   return (
     <div className="absolute bottom-full left-0 right-0 z-50 mb-1">
-      <div ref={listRef} className="max-h-52 overflow-y-auto rounded-lg border border-edge bg-surface shadow-lg">
+      <div ref={listRef} className="max-h-52 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
         {skills.map((skill, i) => (
           <button
             key={skill}
@@ -29,11 +29,11 @@ export function SlashCommandPicker({ skills, selectedIndex, onSelect, onHover }:
             }}
             onMouseMove={() => onHover(i)}
             className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
-              i === selectedIndex ? "bg-surface-secondary" : ""
+              i === selectedIndex ? "bg-muted" : ""
             }`}
           >
-            <span className="shrink-0 font-mono text-xs text-tangerine">/</span>
-            <span className="min-w-0 flex-1 truncate text-sm text-fg">{skill}</span>
+            <span className="shrink-0 font-mono text-xs text-orange-500">/</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{skill}</span>
           </button>
         ))}
       </div>

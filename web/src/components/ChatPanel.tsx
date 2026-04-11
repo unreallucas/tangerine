@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react"
+import { Button } from "@/components/ui/button"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { TERMINAL_STATUSES } from "@tangerine/shared"
 import type { PromptImage, PredefinedPrompt, TaskStatus, ProviderType } from "@tangerine/shared"
@@ -166,14 +167,14 @@ export function ChatPanel({
 
 
   return (
-    <div className="flex h-full flex-col bg-surface">
+    <div className="flex h-full flex-col bg-background">
       {/* Messages */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto"
       >
         {visibleMessages.length === 0 && thinkingCount === 0 ? (
-          <div className="flex h-full items-center justify-center py-20 text-md text-fg-muted">
+          <div className="flex h-full items-center justify-center py-20 text-md text-muted-foreground">
             No messages yet. Send a prompt to start.
           </div>
         ) : (
@@ -203,15 +204,17 @@ export function ChatPanel({
                       <ThinkingIndicator />
                     ) : isThinkingToggle ? (
                       <div className="flex justify-end">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="xs"
                           onClick={() => setShowThinking((v) => !v)}
-                          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xxs text-fg-muted transition hover:bg-surface-secondary"
+                          className="text-muted-foreground"
                         >
                           <svg className="h-3 w-3 text-amber-500/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
                           </svg>
                           {showThinking ? "Hide" : "Show"} reasoning ({thinkingCount})
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <ChatMessage
@@ -280,17 +283,17 @@ function ThinkingIndicator() {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <div className="flex h-5 w-5 items-center justify-center rounded-[10px] bg-surface-dark">
+        <div className="flex h-5 w-5 items-center justify-center rounded-[10px] bg-primary">
           <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-.772.13a18.142 18.142 0 0 1-6.126 0l-.772-.13c-1.717-.293-2.3-2.379-1.067-3.61L13 15" />
           </svg>
         </div>
-        <span className="text-xs font-semibold text-fg">Agent</span>
+        <span className="text-xs font-semibold text-foreground">Agent</span>
       </div>
-      <div className="flex w-fit items-center gap-1 rounded-lg bg-surface-secondary px-3 py-2">
-        <div className="h-1.5 w-1.5 rounded-full bg-fg-muted animate-thinking-dot" />
-        <div className="h-1.5 w-1.5 rounded-full bg-fg-muted animate-thinking-dot" />
-        <div className="h-1.5 w-1.5 rounded-full bg-fg-muted animate-thinking-dot" />
+      <div className="flex w-fit items-center gap-1 rounded-lg bg-muted px-3 py-2">
+        <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-thinking-dot" />
+        <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-thinking-dot" />
+        <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-thinking-dot" />
       </div>
     </div>
   )
@@ -327,12 +330,12 @@ function TerminatedBanner({
   }, [onResolve, resolving])
 
   return (
-    <div className="border-t border-edge bg-surface px-4 py-3">
+    <div className="border-t border-border bg-background px-4 py-3">
       {taskStatus === "failed" && taskError && (
         <p className="mb-2 truncate text-xs text-status-error" title={taskError}>{taskError}</p>
       )}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-md text-fg-muted">
+        <div className="flex items-center gap-2 text-md text-muted-foreground">
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xxs font-medium"
             style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`, color }}
@@ -344,27 +347,28 @@ function TerminatedBanner({
         </div>
         <div className="flex items-center gap-2">
           {onResolve && (taskStatus === "failed" || taskStatus === "cancelled") && (
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => void handleResolve()}
               disabled={resolving}
-              className="flex shrink-0 items-center gap-1.5 rounded-md border border-edge px-3 py-1.5 text-xs font-medium text-fg-muted transition hover:bg-surface-secondary disabled:opacity-50"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
-              {resolving ? "Marking…" : "Mark as done"}
-            </button>
+              {resolving ? "Marking..." : "Mark as done"}
+            </Button>
           )}
           {onContinue && (
-            <button
+            <Button
+              size="sm"
               onClick={() => onContinue(taskId, taskTitle)}
-              className="flex shrink-0 items-center gap-1.5 rounded-md bg-surface-dark px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-80"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Continue in new task
-            </button>
+            </Button>
           )}
         </div>
       </div>

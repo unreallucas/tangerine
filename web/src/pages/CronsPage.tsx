@@ -43,12 +43,12 @@ export function CronsPage() {
         {/* Header */}
         <div className="mb-6">
           <div className="hidden md:block">
-            <h1 className="text-xl font-bold text-fg md:text-2xl">Crons</h1>
-            <p className="mt-0.5 text-md text-fg-muted">Recurring tasks on a schedule</p>
+            <h1 className="text-xl font-bold text-foreground md:text-2xl">Crons</h1>
+            <p className="mt-0.5 text-md text-muted-foreground">Recurring tasks on a schedule</p>
           </div>
           {/* Mobile header */}
           <div className="flex items-center gap-3 md:hidden">
-            <span className="text-lg font-semibold text-fg">Crons</span>
+            <span className="text-lg font-semibold text-foreground">Crons</span>
           </div>
         </div>
 
@@ -63,11 +63,11 @@ export function CronsPage() {
           )}
 
           {/* Cron list */}
-          <div className="overflow-hidden rounded-lg border border-edge">
+          <div className="overflow-hidden rounded-lg border border-border">
             {loading ? (
-              <div className="py-12 text-center text-md text-fg-muted">Loading...</div>
+              <div className="py-12 text-center text-md text-muted-foreground">Loading...</div>
             ) : crons.length === 0 ? (
-              <div className="py-12 text-center text-md text-fg-muted">No crons configured</div>
+              <div className="py-12 text-center text-md text-muted-foreground">No crons configured</div>
             ) : (
               crons.map((c) => (
                 <CronRow
@@ -84,7 +84,7 @@ export function CronsPage() {
 
           {/* Footer */}
           {crons.length > 0 && (
-            <div className="text-xs text-fg-muted">
+            <div className="text-xs text-muted-foreground">
               {crons.length} cron{crons.length !== 1 ? "s" : ""} &middot; {crons.filter((c) => c.enabled).length} enabled
             </div>
           )}

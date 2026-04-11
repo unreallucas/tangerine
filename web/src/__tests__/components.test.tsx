@@ -1,5 +1,84 @@
-import { describe, test, expect, afterEach, beforeEach } from "bun:test"
+import { describe, test, expect, afterEach, beforeEach, mock } from "bun:test"
 import { render, screen, cleanup, fireEvent, act } from "@testing-library/react"
+
+import React from "react"
+
+// base-ui Portal components don't render in happy-dom, so mock them to render inline
+type Props = Record<string, unknown> & { children?: React.ReactNode; className?: string; render?: unknown; placeholder?: string }
+
+function makeBaseUIMock() {
+  function Slot({ children, className, render: _r, ...rest }: Props) {
+    return React.createElement("div", { className, ...rest }, children)
+  }
+  function Passthrough({ children }: Props) { return children ?? null }
+  return {
+    Slot,
+    Passthrough,
+    Root({ children, ...props }: Props) { return React.createElement("div", props, children) },
+    Trigger({ children, className, ...props }: Props) {
+      return React.createElement("button", { className, ...props }, children)
+    },
+    Portal: Passthrough,
+    Positioner({ children }: Props) { return React.createElement("div", null, children) },
+    Popup({ children, className, ...props }: Props) { return React.createElement("div", { className, ...props }, children) },
+    Item({ children, className, ...props }: Props) {
+      return React.createElement("div", { role: "menuitem", className, ...props }, children)
+    },
+    Group: Slot,
+    GroupLabel: Slot,
+    Separator({ className, ...props }: Props) { return React.createElement("hr", { className, ...props }) },
+    Icon: Passthrough,
+    Title: Slot,
+    Description: Slot,
+  }
+}
+
+mock.module("@base-ui/react/menu", () => {
+  const { Slot, ...base } = makeBaseUIMock()
+  return {
+    Menu: {
+      ...base,
+      Root({ children }: Props) { return React.createElement(React.Fragment, null, children) },
+      SubmenuRoot({ children }: Props) { return React.createElement(React.Fragment, null, children) },
+      SubmenuTrigger: Slot,
+      CheckboxItem: Slot,
+      CheckboxItemIndicator({ children }: Props) { return children ?? null },
+      RadioGroup: Slot,
+      RadioItem: Slot,
+      RadioItemIndicator({ children }: Props) { return children ?? null },
+    },
+  }
+})
+
+mock.module("@base-ui/react/popover", () => {
+  const base = makeBaseUIMock()
+  return { Popover: base }
+})
+
+mock.module("@base-ui/react/select", () => {
+  const base = makeBaseUIMock()
+  return {
+    Select: {
+      ...base,
+      Root({ children, ...props }: Props) { return React.createElement("div", props, children) },
+      Trigger({ children, className, ...props }: Props) {
+        return React.createElement("button", { role: "combobox", className, ...props }, children)
+      },
+      Item({ children, className, ...props }: Props) {
+        return React.createElement("button", { className, ...props }, children)
+      },
+      Value({ children, placeholder, className, ...props }: Props) {
+        return React.createElement("span", { className, ...props }, children ?? placeholder)
+      },
+      ItemText({ children, className }: Props) { return React.createElement("span", { className }, children) },
+      ItemIndicator({ children }: Props) { return React.createElement("span", null, children) },
+      List({ children }: Props) { return React.createElement("div", null, children) },
+      ScrollUpArrow({ children }: Props) { return React.createElement("div", null, children) },
+      ScrollDownArrow({ children }: Props) { return React.createElement("div", null, children) },
+    },
+  }
+})
+
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { ActivityList } from "../components/ActivityList"
 import { ChatMessage } from "../components/ChatMessage"
@@ -225,18 +304,21 @@ describe("NewAgentForm", () => {
 
     await screen.findByText("What should the agent work on?")
 
-    const harnessButton = await screen.findByRole("button", { name: "Claude Code" })
-    const controlsRow = harnessButton.parentElement?.parentElement
+    // HarnessSelector renders a shadcn Select (role="combobox")
+    await screen.findAllByText("Claude Code")
+    const comboboxes = screen.getAllByRole("combobox")
+    const harnessCombobox = comboboxes.find((el) => el.textContent?.includes("Claude Code"))
+    expect(harnessCombobox).toBeTruthy()
+    const controlsRow = harnessCombobox!.parentElement?.parentElement
     expect(controlsRow?.className.includes("overflow-visible")).toBe(true)
 
-    fireEvent.click(harnessButton)
-    expect(screen.getByRole("button", { name: "OpenCode" })).toBeTruthy()
+    // ModelSelector is a shadcn Select (role="combobox")
+    const modelCombobox = comboboxes.find((el) => el.textContent?.includes("claude-sonnet-4-6"))
+    expect(modelCombobox).toBeTruthy()
 
-    fireEvent.click(screen.getAllByRole("button", { name: "anthropic/claude-sonnet-4-6" })[0]!)
-    expect(screen.getByRole("button", { name: "anthropic/claude-haiku-4" })).toBeTruthy()
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Medium" })[0]!)
-    expect(screen.getByRole("button", { name: /Extended reasoning/ })).toBeTruthy()
+    // ReasoningEffortSelector is a shadcn Select (role="combobox")
+    const effortCombobox = comboboxes.find((el) => el.textContent?.includes("Medium"))
+    expect(effortCombobox).toBeTruthy()
   })
 
   test("restores new agent draft text, branch, and images from localStorage", async () => {
@@ -289,7 +371,7 @@ describe("NewAgentForm", () => {
     expect(workerBtn.className).not.toContain("shadow-sm")
   })
 
-  test("supports fuzzy model search in the selector", () => {
+  test("renders model selector as a Select combobox", () => {
     render(
       <ModelSelector
         model="anthropic/claude-sonnet-4-6"
@@ -297,19 +379,14 @@ describe("NewAgentForm", () => {
           "anthropic/claude-sonnet-4-6",
           "anthropic/claude-haiku-4-20250414",
           "openai/gpt-5.4",
-          "openai/gpt-5-mini",
-          "google/gemini-2.5-pro",
-          "openrouter/deepseek-r1",
         ]}
         onModelChange={() => {}}
       />,
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "anthropic/claude-sonnet-4-6" }))
-    fireEvent.change(screen.getByPlaceholderText("Search models..."), { target: { value: "g54" } })
-
-    expect(screen.getByRole("button", { name: "openai/gpt-5.4" })).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "openai/gpt-5-mini" })).toBeNull()
+    const combobox = screen.getByRole("combobox")
+    expect(combobox).toBeTruthy()
+    expect(combobox.textContent).toContain("claude-sonnet-4-6")
   })
 })
 

@@ -8,7 +8,7 @@ export function ResizeHandle({ onPointerDown, className }: { onPointerDown: (e: 
       aria-orientation="vertical"
       className={`group relative flex w-3 shrink-0 touch-none cursor-col-resize items-stretch justify-center${className ? ` ${className}` : ""}`}
     >
-      <span className="pointer-events-none my-0.5 w-px rounded-full bg-edge transition-colors group-hover:bg-accent" />
+      <span className="pointer-events-none my-0.5 w-px rounded-full bg-border transition-colors group-hover:bg-accent" />
     </div>
   )
 }
@@ -21,8 +21,8 @@ export function PaneToggle({ desktopActive, mobileActive, onClick, label, disabl
   disabled?: boolean
   children: ReactNode
 }) {
-  const activeClass = "border border-edge bg-surface-secondary text-fg shadow-sm"
-  const inactiveClass = "text-fg-muted"
+  const activeClass = "border border-border bg-muted text-foreground shadow-sm"
+  const inactiveClass = "text-muted-foreground"
   const disabledClass = "opacity-30 cursor-not-allowed"
 
   return (
