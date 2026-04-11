@@ -25,10 +25,8 @@ export function HarnessSelector({ value, onChange, systemCapabilities: capsRaw }
         if (v) onChange(v as ProviderType)
       }}
     >
-      <SelectTrigger
-        size="sm"
-        className="h-auto gap-1.5 rounded-md border-border bg-muted px-2 py-1 text-xxs hover:bg-background"
-      >
+      <SelectTrigger size="sm">
+
         <Terminal className="h-3 w-3 text-muted-foreground" />
         <SelectValue>
           {harnesses.find((h) => h.value === value)?.label ?? value}

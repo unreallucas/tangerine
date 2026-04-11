@@ -287,7 +287,7 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
       <div className="flex flex-col gap-3 p-4 pt-5">
         <Button
           onClick={onNewAgent}
-          className="hidden md:flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary text-primary-foreground"
+          className="hidden md:flex"
         >
           <Plus className="h-3.5 w-3.5" />
           <span className="text-md font-medium">New Run</span>
@@ -322,7 +322,7 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
         >
           <SelectTrigger
             aria-label="Filter by project"
-            className="h-auto border-0 bg-transparent p-0 text-xxs font-medium tracking-wider text-muted-foreground shadow-none focus:ring-1 focus:ring-muted-foreground"
+            size="sm"
           >
             <SelectValue placeholder="PROJECTS" />
           </SelectTrigger>
@@ -338,9 +338,8 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
           size="sm"
           onClick={handleToggleActiveOnly}
           aria-label={activeOnly && !isSearching ? "Show all runs" : "Show active runs only"}
-          className="h-auto rounded-sm bg-primary px-2 py-0.5 hover:opacity-80"
         >
-          <span className="font-mono text-xxs font-semibold text-primary-foreground">
+          <span className="font-mono text-xs font-semibold">
             {activeOnly && !isSearching ? activeCount : totalCount}
           </span>
         </Button>

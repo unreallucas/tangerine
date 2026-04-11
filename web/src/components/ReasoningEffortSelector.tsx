@@ -47,10 +47,8 @@ export function ReasoningEffortSelector({ value, onChange, provider }: Reasoning
         if (v) onChange(v as string)
       }}
     >
-      <SelectTrigger
-        size="sm"
-        className="h-auto gap-1.5 rounded-md border-border bg-muted px-2 py-1 text-xxs hover:bg-background"
-      >
+      <SelectTrigger size="sm">
+
         <Zap className="h-3 w-3 text-muted-foreground" />
         <SelectValue>{current.label}</SelectValue>
       </SelectTrigger>
