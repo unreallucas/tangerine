@@ -50,10 +50,10 @@ export function TaskDetail() {
   const isCrossProject = task !== null && current !== null && task.projectId !== current.name
   const TERMINATED = useMemo(() => new Set(["done", "completed", "cancelled"]), [])
   const orchestratorTask = useMemo(() => {
-    if (!isCrossProject) return null
-    const orchTasks = tasks.filter((t) => t.type === "orchestrator")
+    if (!isCrossProject || !task) return null
+    const orchTasks = tasks.filter((t) => t.type === "orchestrator" && t.projectId === task.projectId)
     return orchTasks.find((t) => !TERMINATED.has(t.status)) ?? null
-  }, [isCrossProject, tasks, TERMINATED])
+  }, [isCrossProject, task, tasks, TERMINATED])
 
   const chatTaskId = (isCrossProject && orchestratorTask) ? orchestratorTask.id : (id ?? "")
   const session = useSession(chatTaskId)

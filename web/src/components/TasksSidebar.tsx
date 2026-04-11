@@ -1,9 +1,8 @@
 import { useMemo, useState, useCallback, useEffect } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useParams, useNavigate } from "react-router-dom"
 import type { Task, ProjectConfig } from "@tangerine/shared"
 import { getStatusConfig, hasUnseenUpdates } from "../lib/status"
 import { formatRelativeTime } from "../lib/format"
-import { useProjectNav } from "../hooks/useProjectNav"
 import { useProject } from "../context/ProjectContext"
 import { ensureOrchestrator } from "../lib/api"
 import { TaskOverflowMenu } from "./TaskListItem"
@@ -50,7 +49,6 @@ function TaskItem({
   isActive: boolean
   onRefetch?: () => void
 }) {
-  const { link } = useProjectNav()
   const { providerMetadata } = useProject()
   const statusConfig = getStatusConfig(task.status)
   const color = task.status === "running" && task.agentStatus === "idle"
@@ -60,7 +58,7 @@ function TaskItem({
 
   return (
     <Link
-      to={link(`/tasks/${task.id}`)}
+      to={`/tasks/${task.id}?project=${encodeURIComponent(task.projectId)}`}
       className={`group flex items-start gap-2.5 px-4 py-2.5 ${
         isActive
           ? "bg-surface-secondary border-l-[3px] border-l-status-error"
@@ -119,8 +117,9 @@ function ProjectGroupHeader({
   isActive: boolean
   onRefetch?: () => void
 }) {
-  const { link, navigate } = useProjectNav()
+  const nav = useNavigate()
   const [creating, setCreating] = useState(false)
+  const projectQs = `?project=${encodeURIComponent(group.projectName)}`
 
   const baseClass = "flex w-full items-center gap-2.5 border-t border-edge bg-surface-secondary/50 px-4 py-2 text-left"
   const activeClass = isActive ? "border-l-[3px] border-l-status-error" : "hover:bg-surface-secondary"
@@ -139,7 +138,7 @@ function ProjectGroupHeader({
   if (group.orchestrator) {
     return (
       <Link
-        to={link(`/tasks/${group.orchestrator.id}`)}
+        to={`/tasks/${group.orchestrator.id}${projectQs}`}
         className={`${baseClass} ${activeClass}`}
         style={isActive ? {} : { borderLeft: "3px solid transparent" }}
       >
@@ -157,7 +156,7 @@ function ProjectGroupHeader({
         try {
           const task = await ensureOrchestrator(group.projectName)
           onRefetch?.()
-          navigate(`/tasks/${task.id}`)
+          nav(`/tasks/${task.id}${projectQs}`)
         } finally {
           setCreating(false)
         }
