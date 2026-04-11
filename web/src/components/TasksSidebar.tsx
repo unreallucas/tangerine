@@ -1,15 +1,15 @@
 import { useMemo, useState, useCallback, useEffect } from "react"
-import { Link, useLocation, useParams } from "react-router-dom"
-import type { Task } from "@tangerine/shared"
+import { Link, useParams } from "react-router-dom"
+import type { Task, ProjectConfig } from "@tangerine/shared"
 import { getStatusConfig, hasUnseenUpdates } from "../lib/status"
 import { formatRelativeTime } from "../lib/format"
 import { useProjectNav } from "../hooks/useProjectNav"
 import { useProject } from "../context/ProjectContext"
-import { ensureOrchestrator } from "../lib/api"
 import { TaskOverflowMenu } from "./TaskListItem"
 
 interface TasksSidebarProps {
   tasks: Task[]
+  projects: ProjectConfig[]
   searchQuery: string
   onSearchChange: (query: string) => void
   onNewAgent: () => void
@@ -18,36 +18,12 @@ interface TasksSidebarProps {
 
 const TERMINATED_STATUSES = new Set(["done", "completed", "failed", "cancelled"])
 const ACTIVE_ONLY_KEY = "tangerine:sidebar-active-only"
-const ITEMS_PER_PAGE = 20
-
-function PaginationControls({ page, totalPages, onPrev, onNext }: { page: number; totalPages: number; onPrev: () => void; onNext: () => void }) {
-  if (totalPages <= 1) return null
-  return (
-    <div className="flex items-center justify-between px-4 py-1.5">
-      <button
-        onClick={onPrev}
-        disabled={page === 0}
-        className="rounded px-2 py-0.5 text-xxs text-fg-muted hover:bg-surface-secondary disabled:opacity-30"
-      >
-        ← Prev
-      </button>
-      <span className="font-mono text-xxs text-fg-muted">{page + 1} / {totalPages}</span>
-      <button
-        onClick={onNext}
-        disabled={page === totalPages - 1}
-        className="rounded px-2 py-0.5 text-xxs text-fg-muted hover:bg-surface-secondary disabled:opacity-30"
-      >
-        Next →
-      </button>
-    </div>
-  )
-}
+const PROJECT_FILTER_KEY = "tangerine:sidebar-project-filter"
 
 function readActiveOnly(): boolean {
   try {
     const v = localStorage.getItem(ACTIVE_ONLY_KEY)
     if (v !== null) return v !== "false"
-    // Migrate from old key: show-completed=true → activeOnly=false
     const old = localStorage.getItem("tangerine:sidebar-show-completed")
     if (old === "true") return false
     return true
@@ -56,26 +32,22 @@ function readActiveOnly(): boolean {
   }
 }
 
-function ParentLabel({ task, taskById }: { task: Task; taskById: Map<string, Task> }) {
-  if (!task.parentTaskId) return null
-  const parent = taskById.get(task.parentTaskId)
-  if (!parent) return null
-  return (
-    <span className="truncate text-2xs text-fg-muted">
-      Continued from: {parent.title}
-    </span>
-  )
+function readProjectFilter(): string {
+  try {
+    return localStorage.getItem(PROJECT_FILTER_KEY) ?? ""
+  } catch {
+    return ""
+  }
 }
 
 function TaskItem({
   task,
   isActive,
-  taskById,
+
   onRefetch,
 }: {
   task: Task
   isActive: boolean
-  taskById: Map<string, Task>
   onRefetch?: () => void
 }) {
   const { link } = useProjectNav()
@@ -89,7 +61,7 @@ function TaskItem({
   return (
     <Link
       to={link(`/tasks/${task.id}`)}
-      className={`group flex items-start gap-2.5 px-4 py-2.5 ${
+      className={`group flex items-start gap-2.5 px-4 py-2.5 pl-7 ${
         isActive
           ? "bg-surface-secondary border-l-[3px] border-l-status-error"
           : "hover:bg-surface-secondary"
@@ -123,7 +95,6 @@ function TaskItem({
             </>
           )}
         </span>
-        <ParentLabel task={task} taskById={taskById} />
       </div>
       <div className="shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">
         <TaskOverflowMenu task={task} onRefetch={onRefetch} size="sm" />
@@ -132,63 +103,158 @@ function TaskItem({
   )
 }
 
-export function TasksSidebar({ tasks, searchQuery, onSearchChange, onNewAgent, onRefetch }: TasksSidebarProps) {
-  const { id: activeId } = useParams<{ id: string }>()
-  const location = useLocation()
-  const isRoot = location.pathname === "/"
-  const { navigate } = useProjectNav()
-  const { current: project } = useProject()
-  const [orchLoading, setOrchLoading] = useState(false)
-  const [activeOnly, setActiveOnly] = useState(readActiveOnly)
-  const [page, setPage] = useState(0)
+interface ProjectGroup {
+  projectId: string
+  projectName: string
+  orchestrator: Task | null
+  tasks: Task[]
+}
 
-  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
+function ProjectGroupHeader({
+  group,
+  isActive,
+}: {
+  group: ProjectGroup
+  isActive: boolean
+}) {
+  const { link } = useProjectNav()
+  const statusConfig = group.orchestrator ? getStatusConfig(group.orchestrator.status) : null
+  const color = group.orchestrator
+    ? (group.orchestrator.status === "running" && group.orchestrator.agentStatus === "idle"
+        ? "var(--color-status-warning)"
+        : statusConfig!.color)
+    : "var(--color-fg-muted)"
 
-  // Single sorted list: active first, then completed — search always shows all statuses
-  const isSearching = searchQuery.length > 0
-  const sortedTasks = useMemo(() => {
-    const nonOrch = tasks.filter((t) => t.type !== "orchestrator")
-    if (activeOnly && !isSearching) return nonOrch.filter((t) => !TERMINATED_STATUSES.has(t.status))
-    // Active tasks first, then completed — stable within each group (API order)
-    const active: Task[] = []
-    const completed: Task[] = []
-    for (const t of nonOrch) {
-      if (TERMINATED_STATUSES.has(t.status)) completed.push(t)
-      else active.push(t)
-    }
-    return [...active, ...completed]
-  }, [tasks, activeOnly, isSearching])
-
-  const activeCount = useMemo(
-    () => tasks.filter((t) => !TERMINATED_STATUSES.has(t.status) && t.type !== "orchestrator").length,
-    [tasks],
+  const content = (
+    <>
+      <div className="flex h-[18px] w-2 items-center">
+        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+      </div>
+      <span className={`truncate text-md font-semibold text-fg ${isActive ? "" : ""}`}>
+        {group.projectName}
+      </span>
+      <div className="flex items-center justify-center rounded-sm bg-surface-secondary px-1.5 py-px">
+        <span className="font-mono text-2xs text-fg-muted">{group.tasks.length}</span>
+      </div>
+    </>
   )
 
-  const totalPages = Math.max(1, Math.ceil(sortedTasks.length / ITEMS_PER_PAGE))
-  const clampedPage = Math.min(page, totalPages - 1)
-  const pagedTasks = sortedTasks.slice(clampedPage * ITEMS_PER_PAGE, (clampedPage + 1) * ITEMS_PER_PAGE)
+  if (group.orchestrator) {
+    return (
+      <Link
+        to={link(`/tasks/${group.orchestrator.id}`)}
+        className={`flex w-full items-center gap-2.5 px-4 py-2 text-left ${
+          isActive
+            ? "bg-surface-secondary border-l-[3px] border-l-status-error"
+            : "hover:bg-surface-secondary"
+        }`}
+        style={isActive ? {} : { borderLeft: "3px solid transparent" }}
+      >
+        {content}
+      </Link>
+    )
+  }
 
-  useEffect(() => { setPage(0) }, [searchQuery, activeOnly])
+  return (
+    <div className="flex w-full items-center gap-2.5 px-4 py-2" style={{ borderLeft: "3px solid transparent" }}>
+      {content}
+    </div>
+  )
+}
 
-  const orchestrator = useMemo(() => {
-    const orchTasks = tasks.filter((t) => t.type === "orchestrator")
-    return orchTasks.find((t) => !TERMINATED_STATUSES.has(t.status)) ?? null
-  }, [tasks])
+export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onNewAgent, onRefetch }: TasksSidebarProps) {
+  const { id: activeId } = useParams<{ id: string }>()
+  const [activeOnly, setActiveOnly] = useState(readActiveOnly)
+  const [projectFilter, setProjectFilter] = useState(readProjectFilter)
 
-  const handleOrchestratorClick = useCallback(async () => {
-    if (!project) return
-    if (orchestrator) {
-      navigate(`/tasks/${orchestrator.id}`)
-      return
+
+  const isSearching = searchQuery.length > 0
+
+  // Filter tasks by activeOnly and project filter, then group by project
+  const { groups, activeCount, totalCount } = useMemo(() => {
+    // Apply project filter
+    const filtered = projectFilter
+      ? tasks.filter((t) => t.projectId === projectFilter)
+      : tasks
+
+    // Split orchestrators vs workers
+    const orchestrators = new Map<string, Task>()
+    const workers: Task[] = []
+    for (const t of filtered) {
+      if (t.type === "orchestrator") {
+        // Prefer active orchestrator
+        const existing = orchestrators.get(t.projectId)
+        if (!existing || (!TERMINATED_STATUSES.has(t.status) && TERMINATED_STATUSES.has(existing.status))) {
+          orchestrators.set(t.projectId, t)
+        }
+      } else {
+        workers.push(t)
+      }
     }
-    setOrchLoading(true)
-    try {
-      const task = await ensureOrchestrator(project.name)
-      navigate(`/tasks/${task.id}`)
-    } finally {
-      setOrchLoading(false)
+
+    // Filter workers by active status
+    const filteredWorkers = activeOnly && !isSearching
+      ? workers.filter((t) => !TERMINATED_STATUSES.has(t.status))
+      : workers
+
+    // Sort: active first, then terminated
+    const sorted = [...filteredWorkers].sort((a, b) => {
+      const aTerminated = TERMINATED_STATUSES.has(a.status) ? 1 : 0
+      const bTerminated = TERMINATED_STATUSES.has(b.status) ? 1 : 0
+      return aTerminated - bTerminated
+    })
+
+    // Group by project
+    const groupMap = new Map<string, ProjectGroup>()
+
+    // Initialize groups from projects list (to maintain order)
+    const activeProjects = projects.filter((p) => !p.archived)
+    for (const p of activeProjects) {
+      if (projectFilter && p.name !== projectFilter) continue
+      groupMap.set(p.name, {
+        projectId: p.name,
+        projectName: p.name,
+        orchestrator: orchestrators.get(p.name) ?? null,
+        tasks: [],
+      })
     }
-  }, [project, orchestrator, navigate])
+
+    // Assign tasks to groups
+    for (const t of sorted) {
+      let group = groupMap.get(t.projectId)
+      if (!group) {
+        group = {
+          projectId: t.projectId,
+          projectName: t.projectId,
+          orchestrator: orchestrators.get(t.projectId) ?? null,
+          tasks: [],
+        }
+        groupMap.set(t.projectId, group)
+      }
+      group.tasks.push(t)
+    }
+
+    // Remove empty groups (no orchestrator and no tasks) unless they match filter
+    const result: ProjectGroup[] = []
+    for (const group of groupMap.values()) {
+      if (group.tasks.length > 0 || group.orchestrator) {
+        result.push(group)
+      }
+    }
+
+    const ac = tasks.filter((t) => !TERMINATED_STATUSES.has(t.status) && t.type !== "orchestrator").length
+    const tc = filteredWorkers.length
+
+    return { groups: result, activeCount: ac, totalCount: tc }
+  }, [tasks, projects, activeOnly, isSearching, projectFilter])
+
+  useEffect(() => {
+    // Validate project filter — clear if project no longer exists
+    if (projectFilter && !projects.some((p) => p.name === projectFilter)) {
+      setProjectFilter("")
+      try { localStorage.removeItem(PROJECT_FILTER_KEY) } catch { /* ignore */ }
+    }
+  }, [projects, projectFilter])
 
   const handleToggleActiveOnly = useCallback(() => {
     setActiveOnly((prev) => {
@@ -198,21 +264,27 @@ export function TasksSidebar({ tasks, searchQuery, onSearchChange, onNewAgent, o
     })
   }, [])
 
+  const handleProjectFilterChange = useCallback((value: string) => {
+    setProjectFilter(value)
+    try {
+      if (value) localStorage.setItem(PROJECT_FILTER_KEY, value)
+      else localStorage.removeItem(PROJECT_FILTER_KEY)
+    } catch { /* ignore */ }
+  }, [])
+
   return (
     <div className="flex h-full w-full shrink-0 flex-col border-r border-edge bg-surface md:w-[240px]">
       {/* Top section */}
       <div className="flex flex-col gap-3 p-4 pt-5">
-        {!isRoot && (
-          <button
-            onClick={onNewAgent}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-md bg-surface-dark text-white"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            <span className="text-md font-medium">New Run</span>
-          </button>
-        )}
+        <button
+          onClick={onNewAgent}
+          className="flex h-9 items-center justify-center gap-1.5 rounded-md bg-surface-dark text-white"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          <span className="text-md font-medium">New Run</span>
+        </button>
         <div className="flex h-[34px] items-center gap-2 rounded-md border border-edge bg-surface px-2.5">
           <svg className="h-3.5 w-3.5 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -232,35 +304,20 @@ export function TasksSidebar({ tasks, searchQuery, onSearchChange, onNewAgent, o
             </button>
           )}
         </div>
+        {/* Project filter */}
+        {projects.length > 1 && (
+          <select
+            value={projectFilter}
+            onChange={(e) => handleProjectFilterChange(e.target.value)}
+            className="h-[34px] rounded-md border border-edge bg-surface px-2.5 text-md text-fg outline-none"
+          >
+            <option value="">All projects</option>
+            {projects.filter((p) => !p.archived).map((p) => (
+              <option key={p.name} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+        )}
       </div>
-
-      {/* Orchestrator entry — pinned above active runs */}
-      <button
-        onClick={handleOrchestratorClick}
-        disabled={orchLoading}
-        className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left ${
-          orchestrator?.id === activeId
-            ? "bg-surface-secondary border-l-[3px] border-l-status-error"
-            : "hover:bg-surface-secondary"
-        }`}
-        style={orchestrator?.id === activeId ? {} : { borderLeft: "3px solid transparent" }}
-      >
-        <div className="flex h-[18px] w-2 items-center">
-          {orchLoading ? (
-            <div className="h-2 w-2 animate-spin rounded-full border border-fg-muted border-t-transparent" />
-          ) : (
-            <div
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: orchestrator
-                ? (orchestrator.status === "running" && orchestrator.agentStatus === "idle" ? "var(--color-status-warning)" : getStatusConfig(orchestrator.status).color)
-                : "var(--color-fg-muted)" }}
-            />
-          )}
-        </div>
-        <span className="text-md font-medium text-fg">Middle Manager</span>
-      </button>
-
-      <div className="h-px bg-edge" />
 
       <button
         onClick={handleToggleActiveOnly}
@@ -271,7 +328,7 @@ export function TasksSidebar({ tasks, searchQuery, onSearchChange, onNewAgent, o
         </span>
         <div className="flex items-center justify-center rounded-sm bg-surface-dark px-2 py-0.5">
           <span className="font-mono text-xxs font-semibold text-white">
-            {activeOnly && !isSearching ? activeCount : sortedTasks.length}
+            {activeOnly && !isSearching ? activeCount : totalCount}
           </span>
         </div>
       </button>
@@ -279,25 +336,27 @@ export function TasksSidebar({ tasks, searchQuery, onSearchChange, onNewAgent, o
       <div className="h-px bg-edge" />
 
       <div className="md:flex-1 md:min-h-0 md:overflow-y-auto">
-        {pagedTasks.length === 0 ? (
+        {groups.length === 0 ? (
           <div className="px-4 py-3 text-xs text-fg-muted">No tasks</div>
         ) : (
-          pagedTasks.map((task) => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              isActive={task.id === activeId}
-              taskById={taskById}
-              onRefetch={onRefetch}
-            />
+          groups.map((group) => (
+            <div key={group.projectId}>
+              <ProjectGroupHeader
+                group={group}
+                isActive={group.orchestrator?.id === activeId}
+              />
+              {group.tasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  isActive={task.id === activeId}
+
+                  onRefetch={onRefetch}
+                />
+              ))}
+            </div>
           ))
         )}
-        <PaginationControls
-          page={clampedPage}
-          totalPages={totalPages}
-          onPrev={() => setPage((p) => Math.max(0, p - 1))}
-          onNext={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-        />
       </div>
     </div>
   )
