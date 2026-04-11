@@ -47,7 +47,6 @@ export function HarnessSelector({ value, onChange, systemCapabilities: capsRaw }
               disabled={!available}
               title={!available ? `Requires ${cliCmd ?? h.value} CLI` : undefined}
             >
-              <Terminal className="h-3 w-3 text-muted-foreground" />
               <span>{h.label}</span>
               {!available && <span className="text-2xs text-muted-foreground">(not installed)</span>}
             </SelectItem>
