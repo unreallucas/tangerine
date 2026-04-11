@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { useOutletContext } from "react-router-dom"
 import { useProject } from "../context/ProjectContext"
 import { useToast } from "../context/ToastContext"
@@ -14,7 +14,10 @@ export function StatusPage() {
   const { showToast } = useToast()
   const outletCtx = useOutletContext<SidebarContext | null>()
   const allTasks = outletCtx?.tasks ?? []
-  const tasks = current ? allTasks.filter((t) => t.projectId === current.name) : allTasks
+  const tasks = useMemo(
+    () => current ? allTasks.filter((t) => t.projectId === current.name) : allTasks,
+    [allTasks, current],
+  )
 
   const handleArchive = useCallback(async () => {
     if (!current) return
@@ -43,24 +46,22 @@ export function StatusPage() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="flex flex-col gap-4 md:gap-6">
-          {/* Title + project selector — desktop only */}
-          <div className="hidden flex-col gap-1 md:flex">
+          {/* Title + project selector */}
+          <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-fg">System Status</h1>
-              {projects.filter((p) => !p.archived).length > 1 && (
-                <select
-                  value={current?.name ?? ""}
-                  onChange={(e) => switchProject(e.target.value, { replace: true })}
-                  aria-label="Select project"
-                  className="rounded-md border border-edge bg-surface px-2.5 py-1 text-md text-fg outline-none focus-visible:ring-1 focus-visible:ring-fg-muted"
-                >
-                  {projects.filter((p) => !p.archived).map((p) => (
-                    <option key={p.name} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
-              )}
+              <h1 className="text-xl font-semibold text-fg md:text-2xl">System Status</h1>
+              <select
+                value={current?.name ?? ""}
+                onChange={(e) => switchProject(e.target.value, { replace: true })}
+                aria-label="Select project"
+                className="rounded-md border border-edge bg-surface px-2.5 py-1 text-md text-fg outline-none focus-visible:ring-1 focus-visible:ring-fg-muted"
+              >
+                {projects.map((p) => (
+                  <option key={p.name} value={p.name}>{p.name}</option>
+                ))}
+              </select>
             </div>
-            <p className="text-sm text-fg-muted">Infrastructure health for {current?.name ?? "the current project"}</p>
+            <p className="hidden text-sm text-fg-muted md:block">Infrastructure health for {current?.name ?? "the current project"}</p>
           </div>
 
           {/* Project update + Active runs */}

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { isProviderAvailable, SUPPORTED_PROVIDERS, type Cron, type ProviderType } from "@tangerine/shared"
+import { isProviderAvailable, SUPPORTED_PROVIDERS, type Cron, type ProjectConfig, type ProviderType } from "@tangerine/shared"
 import { createCron, updateCron } from "../lib/api"
 import { formatCronExpression, formatRelativeTime } from "../lib/format"
 import { useProject } from "../context/ProjectContext"
@@ -83,7 +83,7 @@ function CronFields({
 }
 
 export function CronForm({ projects, onCreated, modelsByProvider }: {
-  projects: import("@tangerine/shared").ProjectConfig[]
+  projects: ProjectConfig[]
   onCreated: () => void
   modelsByProvider: Record<string, string[]>
 }) {
@@ -145,18 +145,16 @@ export function CronForm({ projects, onCreated, modelsByProvider }: {
     <div className="rounded-lg border border-edge bg-surface p-4">
       <h3 className="mb-3 text-sm font-semibold text-fg">New Cron</h3>
       <div className="flex flex-col gap-3">
-        {projects.length > 1 && (
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            aria-label="Project"
-            className="rounded-md border border-edge bg-surface px-3 py-2 text-md text-fg outline-none focus-visible:ring-1 focus-visible:ring-fg-muted"
-          >
-            {projects.map((p) => (
-              <option key={p.name} value={p.name}>{p.name}</option>
-            ))}
-          </select>
-        )}
+        <select
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+          aria-label="Project"
+          className="rounded-md border border-edge bg-surface px-3 py-2 text-md text-fg outline-none focus-visible:ring-1 focus-visible:ring-fg-muted"
+        >
+          {projects.map((p) => (
+            <option key={p.name} value={p.name}>{p.name}</option>
+          ))}
+        </select>
         <CronFields
           title={title} setTitle={setTitle}
           description={description} setDescription={setDescription}

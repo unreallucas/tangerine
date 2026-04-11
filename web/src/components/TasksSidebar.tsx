@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from "react"
 import { Link, useParams, useNavigate } from "react-router-dom"
+import { TERMINAL_STATUSES } from "@tangerine/shared"
 import type { Task, ProjectConfig } from "@tangerine/shared"
 import { getStatusConfig, hasUnseenUpdates } from "../lib/status"
 import { formatRelativeTime } from "../lib/format"
@@ -16,7 +17,6 @@ interface TasksSidebarProps {
   onRefetch?: () => void
 }
 
-const TERMINATED_STATUSES = new Set(["done", "completed", "failed", "cancelled"])
 const ACTIVE_ONLY_KEY = "tangerine:sidebar-active-only"
 const PROJECT_FILTER_KEY = "tangerine:sidebar-project-filter"
 
@@ -182,30 +182,31 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
       ? tasks.filter((t) => t.projectId === projectFilter)
       : tasks
 
-    // Split orchestrators vs workers
+    // Split orchestrators vs workers, count active in one pass
     const orchestrators = new Map<string, Task>()
     const workers: Task[] = []
+    let ac = 0
     for (const t of filtered) {
       if (t.type === "orchestrator") {
-        // Prefer active orchestrator
         const existing = orchestrators.get(t.projectId)
-        if (!existing || (!TERMINATED_STATUSES.has(t.status) && TERMINATED_STATUSES.has(existing.status))) {
+        if (!existing || (!TERMINAL_STATUSES.has(t.status) && TERMINAL_STATUSES.has(existing.status))) {
           orchestrators.set(t.projectId, t)
         }
       } else {
         workers.push(t)
+        if (!TERMINAL_STATUSES.has(t.status)) ac++
       }
     }
 
     // Filter workers by active status
     const filteredWorkers = activeOnly && !isSearching
-      ? workers.filter((t) => !TERMINATED_STATUSES.has(t.status))
+      ? workers.filter((t) => !TERMINAL_STATUSES.has(t.status))
       : workers
 
     // Sort: active first, then terminated
     const sorted = [...filteredWorkers].sort((a, b) => {
-      const aTerminated = TERMINATED_STATUSES.has(a.status) ? 1 : 0
-      const bTerminated = TERMINATED_STATUSES.has(b.status) ? 1 : 0
+      const aTerminated = TERMINAL_STATUSES.has(a.status) ? 1 : 0
+      const bTerminated = TERMINAL_STATUSES.has(b.status) ? 1 : 0
       return aTerminated - bTerminated
     })
 
@@ -241,10 +242,7 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
 
     const result = Array.from(groupMap.values())
 
-    const ac = workers.filter((t) => !TERMINATED_STATUSES.has(t.status)).length
-    const tc = filteredWorkers.length
-
-    return { groups: result, activeCount: ac, totalCount: tc }
+    return { groups: result, activeCount: ac, totalCount: filteredWorkers.length }
   }, [tasks, projects, activeOnly, isSearching, projectFilter])
 
   useEffect(() => {
@@ -306,23 +304,17 @@ export function TasksSidebar({ tasks, projects, searchQuery, onSearchChange, onN
       </div>
 
       <div className="flex w-full shrink-0 items-center justify-between px-4 py-2.5">
-        {projects.filter((p) => !p.archived).length > 1 ? (
-          <select
-            value={projectFilter}
-            onChange={(e) => handleProjectFilterChange(e.target.value)}
-            aria-label="Filter by project"
-            className="text-xxs font-medium tracking-wider text-fg-muted bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-fg-muted rounded"
-          >
-            <option value="">ALL PROJECTS</option>
-            {projects.filter((p) => !p.archived).map((p) => (
-              <option key={p.name} value={p.name}>{p.name.toUpperCase()}</option>
-            ))}
-          </select>
-        ) : (
-          <span className="text-xxs font-medium tracking-wider text-fg-muted">
-            {activeOnly && !isSearching ? "ACTIVE RUNS" : "ALL RUNS"}
-          </span>
-        )}
+        <select
+          value={projectFilter}
+          onChange={(e) => handleProjectFilterChange(e.target.value)}
+          aria-label="Filter by project"
+          className="text-xxs font-medium tracking-wider text-fg-muted bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-fg-muted rounded"
+        >
+          <option value="">ALL PROJECTS</option>
+          {projects.filter((p) => !p.archived).map((p) => (
+            <option key={p.name} value={p.name}>{p.name.toUpperCase()}</option>
+          ))}
+        </select>
         <button
           onClick={handleToggleActiveOnly}
           aria-label={activeOnly && !isSearching ? "Show all runs" : "Show active runs only"}
