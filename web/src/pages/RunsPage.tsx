@@ -16,6 +16,7 @@ export function RunsPage() {
   const refTaskId = searchParams.get("ref") ?? undefined
   const refTaskTitle = searchParams.get("refTitle") ?? undefined
   const refBranch = searchParams.get("branch") ?? undefined
+  const refProjectId = searchParams.get("refProject") ?? undefined
   const shouldFocus = searchParams.get("focus") === "1"
   const formRef = useRef<HTMLDivElement>(null)
   const scrolledForRef = useRef<string | undefined>(undefined)
@@ -58,7 +59,7 @@ export function RunsPage() {
   return (
     <div className="flex flex-col md:h-full">
       <div ref={formRef} id="new-agent-form" className="min-h-0 flex-1">
-        <NewAgentForm onSubmit={handleSubmit} refTaskId={refTaskId} refTaskTitle={refTaskTitle} refBranch={refBranch} autoFocus={shouldFocus} />
+        <NewAgentForm onSubmit={handleSubmit} refTaskId={refTaskId} refTaskTitle={refTaskTitle} refBranch={refBranch} refProjectId={refProjectId} autoFocus={shouldFocus} />
       </div>
     </div>
   )

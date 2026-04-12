@@ -10,12 +10,15 @@ import { useTasks } from "../hooks/useTasks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select"
+import { Layers } from "lucide-react"
 
 interface NewAgentFormProps {
   onSubmit: (data: { projectId: string; title: string; description?: string; branch?: string; provider?: string; model?: string; reasoningEffort?: string; parentTaskId?: string; type?: string; images?: PromptImage[] }) => void
   refTaskId?: string
   refTaskTitle?: string
   refBranch?: string
+  refProjectId?: string
   autoFocus?: boolean
 }
 
@@ -33,10 +36,35 @@ function loadDraftFromKey(key: string): { description?: string; customBranch?: s
 
 /* -- Main form -- */
 
-export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, autoFocus }: NewAgentFormProps) {
-  const { current, modelsByProvider, systemCapabilities } = useProject()
+export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, refProjectId, autoFocus }: NewAgentFormProps) {
+  const { current, projects, modelsByProvider, systemCapabilities } = useProject()
   const PREFS_KEY = "tangerine:agent-prefs"
-  const draftKey = `tangerine:new-agent-draft:${current?.name ?? "unknown"}:${refTaskId ?? "new"}`
+
+  // selectedProjectName tracks which project the user has chosen; initialised from
+  // refProjectId (continue flow) → current URL project → empty (still loading)
+  const [selectedProjectName, setSelectedProjectName] = useState<string>(refProjectId ?? current?.name ?? "")
+
+  // Once the project context loads (null → name), fill in the selection if the
+  // user hasn't already picked something explicitly.
+  const projectInitializedRef = useRef(!!selectedProjectName)
+  useEffect(() => {
+    if (projectInitializedRef.current) return
+    if (current?.name) {
+      projectInitializedRef.current = true
+      setSelectedProjectName(current.name)
+    }
+  }, [current?.name])
+
+  const handleProjectChange = useCallback((name: string) => {
+    projectInitializedRef.current = true
+    setSelectedProjectName(name)
+  }, [])
+
+  const activeProjects = projects.filter((p) => !p.archived)
+  // The project the form actually operates on (may differ from the URL project)
+  const effectiveProject = projects.find((p) => p.name === selectedProjectName) ?? current
+
+  const draftKey = `tangerine:new-agent-draft:${selectedProjectName || (current?.name ?? "unknown")}:${refTaskId ?? "new"}`
 
   // prevDraftKeyRef tracks the last draftKey the effects operated on, to detect project switches
   const prevDraftKeyRef = useRef(draftKey)
@@ -51,7 +79,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
   const saved = loadPrefs()
 
   const defaultProvider = (() => {
-    const preferred = (saved.provider as ProviderType) ?? current?.defaultProvider ?? "claude-code"
+    const preferred = (saved.provider as ProviderType) ?? effectiveProject?.defaultProvider ?? "claude-code"
     if (isProviderAvailable(systemCapabilities, preferred)) return preferred
     const available = SUPPORTED_PROVIDERS.find((p) => isProviderAvailable(systemCapabilities, p))
     return (available ?? preferred) as ProviderType
@@ -73,10 +101,10 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
   }, [systemCapabilities, provider])
   const [taskType, setTaskType] = useState<"worker" | "reviewer">(() => loadDraftFromKey(draftKey).taskType ?? "worker")
   const [submitting, setSubmitting] = useState(false)
-  const branch = current?.defaultBranch ?? "main"
+  const branch = effectiveProject?.defaultBranch ?? "main"
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const { tasks: allTasks } = useTasks({ project: current?.name })
+  const { tasks: allTasks } = useTasks({ project: effectiveProject?.name })
   const mention = useMentionPicker(allTasks)
   const mentionRef = useRef(mention)
   mentionRef.current = mention
@@ -172,7 +200,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
   }, [draftKey, description, customBranch, taskType, pendingImages])
 
   const providerAvailable = isProviderAvailable(systemCapabilities, provider)
-  const canSubmit = (!!description.trim() || pendingImages.length > 0) && !!current && !submitting && providerAvailable
+  const canSubmit = (!!description.trim() || pendingImages.length > 0) && !!effectiveProject && !submitting && providerAvailable
 
   const submitAndReset = useCallback((data: Parameters<typeof onSubmit>[0]) => {
     setSubmitting(true)
@@ -182,7 +210,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
   }, [onSubmit, draftKey])
 
   const handleCodeSubmit = useCallback(() => {
-    if (!current || submitting) return
+    if (!effectiveProject || submitting) return
     const trimmed = description.trim()
     if (!trimmed && pendingImages.length === 0) return
 
@@ -200,7 +228,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
     }
 
     submitAndReset({
-      projectId: current.name,
+      projectId: effectiveProject.name,
       title: trimmed.slice(0, 80) || (refTaskTitle ? `Continue: ${refTaskTitle}`.slice(0, 80) : "New task"),
       description: fullDescription || undefined,
       branch: customBranch.trim() || undefined,
@@ -211,7 +239,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
       type: taskType,
       images,
     })
-  }, [current, submitting, description, pendingImages, customBranch, provider, activeModel, reasoningEffort, taskType, refTaskId, refTaskTitle, submitAndReset])
+  }, [effectiveProject, submitting, description, pendingImages, customBranch, provider, activeModel, reasoningEffort, taskType, refTaskId, refTaskTitle, submitAndReset])
 
   const handleSubmit = handleCodeSubmit
 
@@ -263,7 +291,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
 
           {/* gh CLI warning for GitHub-backed projects */}
           {(() => {
-            if (!systemCapabilities || !current?.repo || !isGithubRepo(current.repo)) return null
+            if (!systemCapabilities || !effectiveProject?.repo || !isGithubRepo(effectiveProject.repo)) return null
             const msg = !systemCapabilities.gh.available
               ? "gh CLI not installed — PR creation and tracking unavailable"
               : !systemCapabilities.gh.authenticated
@@ -339,6 +367,23 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, aut
             {/* Inline controls below textarea */}
             <div className="flex flex-col gap-2.5 overflow-visible border-t border-border px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2 overflow-visible">
+                {activeProjects.length > 1 && (
+                  <Select value={selectedProjectName} onValueChange={(v) => { if (v) handleProjectChange(v) }}>
+                    <SelectTrigger size="sm">
+                      <Layers className="h-3 w-3 text-muted-foreground" />
+                      <SelectValue>{effectiveProject?.name ?? "Select project"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent side="top" align="start" alignItemWithTrigger={false} className="min-w-[160px]">
+                      <SelectGroup>
+                        {activeProjects.map((p) => (
+                          <SelectItem key={p.name} value={p.name}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
                 <HarnessSelector value={provider} onChange={handleProviderChange} systemCapabilities={systemCapabilities} />
                 <Input
                   type="text"
