@@ -514,11 +514,11 @@ export function TaskDetail() {
 
         {/* Parent / children relationship bar */}
         {(parentTask || childTasks.length > 0) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-3 py-1.5 text-xs text-muted-foreground md:px-5">
+          <div className="flex items-center gap-x-3 overflow-x-auto scrollbar-none border-b border-border px-3 py-1.5 text-xs text-muted-foreground md:px-5">
             {parentTask && (
               <Link
                 to={link(`/tasks/${parentTask.id}`)}
-                className="flex items-center gap-1 hover:text-foreground"
+                className="flex shrink-0 items-center gap-1 hover:text-foreground"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
@@ -527,8 +527,11 @@ export function TaskDetail() {
                 <span className="font-medium text-foreground">{parentTask.title}</span>
               </Link>
             )}
+            {parentTask && childTasks.length > 0 && (
+              <span className="shrink-0 text-border">|</span>
+            )}
             {childTasks.length > 0 && (
-              <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-none">
+              <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                 <span className="shrink-0">Related:</span>
                 {[...childTasks].reverse().map((child) => (
                   <Link
