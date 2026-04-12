@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ProjectSelector } from "./ProjectSelector"
+import { BranchInput } from "./BranchInput"
 
 interface CronFieldsProps {
   title: string
@@ -74,12 +75,10 @@ function CronFields({
           onModelChange={setModel}
           menuPlacement="bottom"
         />
-        <Input
-          type="text"
+        <BranchInput
           value={branch}
-          onChange={(e) => setBranch(e.target.value)}
-          placeholder="Branch (optional)"
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-md text-foreground placeholder-muted-foreground outline-none md:w-[180px]"
+          onChange={setBranch}
+          className="rounded-md border border-border bg-background text-md md:w-[180px]"
         />
       </div>
     </>
