@@ -7,8 +7,10 @@ import { HarnessSelector } from "./HarnessSelector"
 import { ModelSelector } from "./ModelSelector"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Textarea } from "@/components/ui/textarea"
 import { ProjectSelector } from "./ProjectSelector"
+import { GitBranch } from "lucide-react"
 
 interface CronFieldsProps {
   title: string
@@ -74,13 +76,18 @@ function CronFields({
           onModelChange={setModel}
           menuPlacement="bottom"
         />
-        <Input
-          type="text"
-          value={branch}
-          onChange={(e) => setBranch(e.target.value)}
-          placeholder="Branch (optional)"
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-md text-foreground placeholder-muted-foreground outline-none md:w-[180px]"
-        />
+        <InputGroup className="rounded-md border border-border bg-background text-md md:w-[180px]">
+          <InputGroupAddon>
+            <GitBranch className="size-3.5" />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="text"
+            value={branch}
+            onChange={(e) => setBranch(e.target.value)}
+            placeholder="Branch (optional)"
+            className="text-md text-foreground placeholder-muted-foreground outline-none"
+          />
+        </InputGroup>
       </div>
     </>
   )
