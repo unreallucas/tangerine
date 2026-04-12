@@ -73,7 +73,6 @@ export function TaskDetail() {
       return next
     })
   }, [diffCommentsKey])
-  const [showAllChildren, setShowAllChildren] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
   const handleCopyId = useCallback(() => {
     if (!id) return
@@ -529,26 +528,18 @@ export function TaskDetail() {
               </Link>
             )}
             {childTasks.length > 0 && (
-              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <span>Related:</span>
-                {(showAllChildren ? childTasks : childTasks.slice(0, 3)).map((child) => (
+              <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-none">
+                <span className="shrink-0">Related:</span>
+                {[...childTasks].reverse().map((child) => (
                   <Link
                     key={child.id}
                     to={link(`/tasks/${child.id}`)}
-                    className="max-w-[200px] truncate rounded bg-muted px-1.5 py-0.5 text-xxs font-medium text-foreground hover:bg-border"
+                    className="shrink-0 max-w-[200px] truncate rounded bg-muted px-1.5 py-0.5 text-xxs font-medium text-foreground hover:bg-border"
                     title={child.title}
                   >
                     Continued in: {child.title}
                   </Link>
                 ))}
-                {childTasks.length > 3 && (
-                  <button
-                    onClick={() => setShowAllChildren((v) => !v)}
-                    className="rounded bg-muted px-1.5 py-0.5 text-xxs font-medium text-muted-foreground hover:bg-border hover:text-foreground"
-                  >
-                    {showAllChildren ? "Show less" : `+${childTasks.length - 3} more`}
-                  </button>
-                )}
               </div>
             )}
           </div>
