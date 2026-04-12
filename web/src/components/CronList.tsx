@@ -91,6 +91,7 @@ export function CronForm({ projects, onCreated, modelsByProvider }: {
   modelsByProvider: Record<string, string[]>
 }) {
   const { systemCapabilities } = useProject()
+  const [expanded, setExpanded] = useState(false)
   const [projectId, setProjectId] = useState(projects[0]?.name ?? "")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -136,6 +137,7 @@ export function CronForm({ projects, onCreated, modelsByProvider }: {
       setDescription("")
       setCron("")
       setBranch("")
+      setExpanded(false)
       onCreated()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -143,6 +145,18 @@ export function CronForm({ projects, onCreated, modelsByProvider }: {
       setSubmitting(false)
     }
   }, [canSubmit, projectId, title, description, cron, provider, activeModel, branch, onCreated])
+
+  if (!expanded) {
+    return (
+      <Button
+        variant="outline"
+        onClick={() => setExpanded(true)}
+        className="flex h-9 items-center justify-center rounded-md px-4 text-md font-medium"
+      >
+        + New Cron
+      </Button>
+    )
+  }
 
   return (
     <div className="rounded-lg border border-border bg-background p-4">
@@ -165,13 +179,22 @@ export function CronForm({ projects, onCreated, modelsByProvider }: {
           branch={branch} setBranch={setBranch}
         />
         {error && <p className="text-xs text-status-error">{error}</p>}
-        <Button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="flex h-9 items-center justify-center rounded-md px-4 text-md font-medium"
-        >
-          {submitting ? "Creating..." : "Create Cron"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="flex h-9 flex-1 items-center justify-center rounded-md px-4 text-md font-medium"
+          >
+            {submitting ? "Creating..." : "Create Cron"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setExpanded(false)}
+            className="flex h-9 items-center justify-center rounded-md px-4 text-md text-muted-foreground"
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
     </div>
   )
