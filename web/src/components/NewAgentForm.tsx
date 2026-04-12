@@ -40,31 +40,15 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, ref
   const { current, projects, modelsByProvider, systemCapabilities } = useProject()
   const PREFS_KEY = "tangerine:agent-prefs"
 
-  // selectedProjectName tracks which project the user has chosen; initialised from
-  // refProjectId (continue flow) → current URL project → empty (still loading)
-  const [selectedProjectName, setSelectedProjectName] = useState<string>(refProjectId ?? current?.name ?? "")
-
-  // Once the project context loads (null → name), fill in the selection if the
-  // user hasn't already picked something explicitly.
-  const projectInitializedRef = useRef(!!selectedProjectName)
-  useEffect(() => {
-    if (projectInitializedRef.current) return
-    if (current?.name) {
-      projectInitializedRef.current = true
-      setSelectedProjectName(current.name)
-    }
-  }, [current?.name])
-
-  const handleProjectChange = useCallback((name: string) => {
-    projectInitializedRef.current = true
-    setSelectedProjectName(name)
-  }, [])
+  // selectedProjectName is set when the user explicitly picks a project or when
+  // refProjectId is provided (continue flow). Empty means "use context default".
+  const [selectedProjectName, setSelectedProjectName] = useState<string>(refProjectId ?? "")
 
   const activeProjects = projects.filter((p) => !p.archived)
-  // The project the form actually operates on (may differ from the URL project)
+  // When no explicit selection, fall back to the URL project (current).
   const effectiveProject = projects.find((p) => p.name === selectedProjectName) ?? current
 
-  const draftKey = `tangerine:new-agent-draft:${selectedProjectName || (current?.name ?? "unknown")}:${refTaskId ?? "new"}`
+  const draftKey = `tangerine:new-agent-draft:${effectiveProject?.name ?? "unknown"}:${refTaskId ?? "new"}`
 
   // prevDraftKeyRef tracks the last draftKey the effects operated on, to detect project switches
   const prevDraftKeyRef = useRef(draftKey)
@@ -368,7 +352,7 @@ export function NewAgentForm({ onSubmit, refTaskId, refTaskTitle, refBranch, ref
             <div className="flex flex-col gap-2.5 overflow-visible border-t border-border px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-2 overflow-visible">
                 {activeProjects.length > 0 && (
-                  <Select value={selectedProjectName} onValueChange={(v) => { if (v) handleProjectChange(v) }}>
+                  <Select value={selectedProjectName || (effectiveProject?.name ?? "")} onValueChange={(v) => { if (v) setSelectedProjectName(v) }}>
                     <SelectTrigger size="sm">
                       <Layers className="h-3 w-3 text-muted-foreground" />
                       <SelectValue>{effectiveProject?.name ?? "Select project"}</SelectValue>
