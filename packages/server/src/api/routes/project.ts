@@ -409,8 +409,22 @@ export function projectRoutes(deps: AppDeps): Hono {
           postUpdateOutput = output
         }
 
+        // If server or shared code changed, schedule restart after response
+        let restart = false
+        if (updated) {
+          const serverChanged = yield* shellExec(`git diff ${from}..${to} --name-only -- packages/server/ packages/shared/`, repoDir).pipe(
+            Effect.map((diff) => diff.length > 0),
+            Effect.orElse(() => Effect.succeed(false))
+          )
+          if (serverChanged) {
+            restart = true
+            log.info("Server code changed, scheduling restart", { name })
+            setTimeout(() => process.exit(DAEMON_RESTART_EXIT_CODE), 1000)
+          }
+        }
+
         log.info("Fork synced successfully", { name, slug, from, to, updated })
-        return { synced: true, upstream: forkInfo.parentSlug, updated, from, to, postUpdateOutput }
+        return { synced: true, upstream: forkInfo.parentSlug, updated, from, to, postUpdateOutput, restart }
       })
     )
   })
