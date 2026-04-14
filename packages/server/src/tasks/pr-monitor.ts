@@ -33,6 +33,7 @@ interface PrListItem {
 }
 
 const log = createLogger("pr-monitor")
+const authCurlFlag = '${TANGERINE_AUTH_TOKEN:+-H "Authorization: Bearer $TANGERINE_AUTH_TOKEN"}'
 
 const PR_POLL_INTERVAL_MS = 60_000
 
@@ -320,7 +321,7 @@ export function pollPrStatuses(deps: PrMonitorDeps): Effect.Effect<void, never> 
             task.id,
             `[TANGERINE: Your PR has been merged (${task.pr_url}). ` +
             `If you have post-merge work to do (e.g., publish a release, update documentation), do it now. ` +
-            `When you're done, call \`curl -X POST http://localhost:${apiPort}/api/tasks/${task.id}/done\` to complete the task.]`
+            `When you're done, call \`curl -X POST ${authCurlFlag} http://localhost:${apiPort}/api/tasks/${task.id}/done\` to complete the task.]`
           )
         } else {
           log.info("PR merged, completing non-running task", { taskId: task.id, prUrl: task.pr_url, status: task.status })
@@ -364,7 +365,7 @@ export function pollPrStatuses(deps: PrMonitorDeps): Effect.Effect<void, never> 
             task.id,
             `[TANGERINE: Your PR has been closed without merge (${task.pr_url}). ` +
             `If you need to inform a parent task or do cleanup, do it now. ` +
-            `When you're done, call \`curl -X POST http://localhost:${apiPort}/api/tasks/${task.id}/cancel\` to cancel the task.]`
+            `When you're done, call \`curl -X POST ${authCurlFlag} http://localhost:${apiPort}/api/tasks/${task.id}/cancel\` to cancel the task.]`
           )
         } else {
           log.info("PR closed without merge, cancelling non-running task", { taskId: task.id, prUrl: task.pr_url, status: task.status })
