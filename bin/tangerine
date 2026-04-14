@@ -1,2 +1,7 @@
 #!/usr/bin/env bun
-import "../dist/cli.js"
+// Use bundled CLI when available (npm installs), fall back to source (local dev)
+try {
+  await import("../dist/cli.js")
+} catch {
+  await import("../packages/server/src/cli/index.ts")
+}
