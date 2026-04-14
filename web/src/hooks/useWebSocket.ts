@@ -8,20 +8,19 @@ interface TaggedWebSocket extends WebSocket {
   __taskId?: string
 }
 
-// Close a WebSocket without triggering the browser warning that fires when
-// close() is called while readyState is still CONNECTING. We null out all
-// handlers first (so no reconnect logic fires), then either close immediately
-// if the handshake is done, or wait for onopen and close right away.
+// Null all handlers and close the WebSocket. Nulling handlers first is
+// important: it prevents the onclose handler from scheduling a reconnect when
+// we're intentionally tearing down (task switch, unmount). We close
+// immediately regardless of readyState — calling close() on a CONNECTING
+// socket emits a browser console warning, but it correctly aborts the
+// handshake. Deferring close until onopen would suppress the warning but
+// allow the handshake to complete, creating orphaned server subscriptions.
 function safeClose(ws: TaggedWebSocket) {
+  ws.onopen = null
   ws.onmessage = null
   ws.onerror = null
   ws.onclose = null
-  if (ws.readyState === WebSocket.CONNECTING) {
-    ws.onopen = () => ws.close()
-  } else {
-    ws.onopen = null
-    ws.close()
-  }
+  ws.close()
 }
 
 interface UseWebSocketResult {
