@@ -3,16 +3,31 @@ import type { WsServerMessage, WsClientMessage } from "@tangerine/shared"
 
 const MAX_BACKOFF = 30000
 
+// Tag interface so we can associate a WebSocket with its task
+interface TaggedWebSocket extends WebSocket {
+  __taskId?: string
+}
+
+// Null all handlers and close the WebSocket. Nulling handlers first is
+// important: it prevents the onclose handler from scheduling a reconnect when
+// we're intentionally tearing down (task switch, unmount). We close
+// immediately regardless of readyState — calling close() on a CONNECTING
+// socket emits a browser console warning, but it correctly aborts the
+// handshake. Deferring close until onopen would suppress the warning but
+// allow the handshake to complete, creating orphaned server subscriptions.
+function safeClose(ws: TaggedWebSocket) {
+  ws.onopen = null
+  ws.onmessage = null
+  ws.onerror = null
+  ws.onclose = null
+  ws.close()
+}
+
 interface UseWebSocketResult {
   connected: boolean
   messages: WsServerMessage[]
   send: (msg: WsClientMessage) => void
   lastEvent: WsServerMessage | null
-}
-
-// Tag interface so we can associate a WebSocket with its task
-interface TaggedWebSocket extends WebSocket {
-  __taskId?: string
 }
 
 export function useWebSocket(taskId: string): UseWebSocketResult {
@@ -85,7 +100,7 @@ export function useWebSocket(taskId: string): UseWebSocketResult {
     // send() could push through the old connection.
     const ws = wsRef.current
     if (ws && ws.__taskId !== taskId) {
-      ws.close()
+      safeClose(ws)
       wsRef.current = null
     }
   }, [taskId])
@@ -115,7 +130,8 @@ export function useWebSocket(taskId: string): UseWebSocketResult {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
       }
-      wsRef.current?.close()
+      const ws = wsRef.current
+      if (ws) safeClose(ws)
     }
   }, [connect])
 

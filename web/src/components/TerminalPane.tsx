@@ -204,6 +204,13 @@ export function TerminalPane(props: TerminalPaneProps) {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       const ws = wsRef.current
       if (ws) {
+        // Null handlers before close so reconnect logic doesn't fire.
+        // Close immediately regardless of readyState — deferring to onopen
+        // would suppress the browser warning but let the handshake complete,
+        // which can create orphaned server sessions on slow networks.
+        ws.onopen = null
+        ws.onmessage = null
+        ws.onerror = null
         ws.onclose = null
         ws.close()
         wsRef.current = null
