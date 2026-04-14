@@ -3,8 +3,16 @@ import { SUPPORTED_PROVIDERS } from "./constants"
 export type TaskStatus = "created" | "provisioning" | "running" | "done" | "failed" | "cancelled"
 export type ProviderType = typeof SUPPORTED_PROVIDERS[number]
 export type TaskSource = "github" | "linear" | "manual" | "cross-project" | "cron"
-export type TaskType = "worker" | "orchestrator" | "reviewer"
+export type TaskType = "worker" | "orchestrator" | "reviewer" | "runner"
 export type TaskCapability = "resolve" | "predefined-prompts" | "diff" | "continue" | "pr-track" | "pr-create"
+
+/** Returns canonical capabilities for a task type. Used to gate UI on capabilities, not type strings. */
+export function getCapabilitiesForType(type: TaskType): TaskCapability[] {
+  if (type === "orchestrator") return ["resolve", "predefined-prompts"]
+  if (type === "runner") return ["resolve", "diff", "continue"]
+  if (type === "reviewer") return ["resolve", "predefined-prompts", "diff", "pr-track"]
+  return ["resolve", "predefined-prompts", "diff", "continue", "pr-track", "pr-create"]
+}
 export interface Task {
   id: string
   projectId: string
