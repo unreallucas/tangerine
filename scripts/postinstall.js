@@ -24,5 +24,7 @@ fs.mkdirSync(nmDir, { recursive: true })
 
 const target = path.join(nmDir, "shared")
 if (!fs.existsSync(target)) {
-  fs.symlinkSync(sharedPkg, target, "dir")
+  // Use "junction" on Windows (no admin/dev-mode needed), "dir" elsewhere
+  const type = process.platform === "win32" ? "junction" : "dir"
+  fs.symlinkSync(sharedPkg, target, type)
 }
