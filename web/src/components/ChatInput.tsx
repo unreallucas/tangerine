@@ -363,10 +363,10 @@ export function ChatInput({ onSend, disabled, queueLength, taskId, isWorking, on
             {showPrompts && predefinedPrompts && predefinedPrompts.map((prompt, i) => (
               <Button
                 key={i}
-                variant="outline"
+                variant="secondary"
                 size="xs"
                 onMouseDown={(e) => handlePromptClick(e, prompt.text)}
-                className="pointer-events-auto shrink-0 rounded-full border-transparent bg-muted text-muted-foreground shadow-sm hover:border-transparent hover:bg-muted hover:text-foreground"
+                className="pointer-events-auto shrink-0 rounded-full"
               >
                 {prompt.label}
               </Button>
