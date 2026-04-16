@@ -131,10 +131,10 @@ export function startSession(
     )
 
     let worktreePath: string
+    let usesSlot0: boolean
 
     if (isRunner) {
-      // Runner tasks use the project root (slot 0) — acquire the orchestrator slot
-      // for mutual exclusion so concurrent runners don't clobber each other.
+      // Runner tasks use the project root (slot 0) — shared with other slot 0 tasks.
       const exec = (cmd: string) => localExec(cmd, repoDir)
       yield* initPool(deps.db, task.project_id, exec, repoDir, config.poolSize).pipe(
         Effect.mapError((e) => new SessionStartError({
@@ -144,7 +144,7 @@ export function startSession(
           cause: e,
         }))
       )
-      yield* activity("worktree.acquiring", "Acquiring orchestrator slot for runner")
+      yield* activity("worktree.acquiring", "Acquiring slot 0 for runner")
       const slot = yield* acquireOrchestratorSlot(deps.db, task.project_id, task.id, deps.getTask).pipe(
         Effect.mapError((e) => new SessionStartError({
           message: `Slot acquisition failed: ${e.message}`,
@@ -154,18 +154,9 @@ export function startSession(
         }))
       )
       worktreePath = resolve(slot.path)
-      yield* localExec(
-        `cd ${worktreePath} && git checkout ${defaultBranch} 2>/dev/null; git reset --hard origin/${defaultBranch} && git clean -fd`,
-      ).pipe(
-        Effect.tap(() => activity("worktree.ready", "Runner task using project root", { worktreePath, slot: slot.id })),
-        Effect.mapError((e) => new SessionStartError({
-          message: `Project root reset failed: ${e.message}`,
-          taskId: task.id,
-          phase: "checkout-branch",
-          cause: e,
-        }))
-      )
-      taskLog.debug("Runner task using project root", { worktreePath, slotId: slot.id })
+      usesSlot0 = true
+      yield* activity("worktree.ready", "Runner task using slot 0", { worktreePath, slot: slot.id })
+      taskLog.debug("Runner task using slot 0", { worktreePath, slotId: slot.id })
     } else {
       // 2. Init worktree pool (idempotent) and acquire a slot
       const exec = (cmd: string) => localExec(cmd, repoDir)
@@ -178,7 +169,7 @@ export function startSession(
         }))
       )
 
-      yield* activity("worktree.acquiring", isOrchestrator ? "Acquiring orchestrator slot" : "Acquiring worktree slot")
+      yield* activity("worktree.acquiring", isOrchestrator ? "Acquiring slot 0" : "Acquiring worktree slot")
       const slot = yield* (isOrchestrator
         ? acquireOrchestratorSlot(deps.db, task.project_id, task.id, deps.getTask)
         : acquireSlot(deps.db, task.project_id, task.id, deps.getTask, exec, defaultBranch)
@@ -192,21 +183,13 @@ export function startSession(
       )
       yield* activity("worktree.acquired", `Acquired worktree slot`, { slot: slot.id })
       worktreePath = resolve(slot.path)
+      usesSlot0 = slot.id.endsWith("-slot-0")
 
-      if (isOrchestrator) {
-        // Orchestrator uses slot 0 (main repo) — fetch, reset to clean default branch state.
-        // Previous orchestrator runs may have left uncommitted changes or a different checkout.
-        yield* localExec(
-          `cd ${worktreePath} && git fetch origin && git checkout ${defaultBranch} 2>/dev/null; git reset --hard origin/${defaultBranch} && git clean -fd`,
-        ).pipe(
-          Effect.tap(() => activity("worktree.ready", "Orchestrator slot ready", { worktreePath, branch, slot: slot.id })),
-          Effect.mapError((e) => new SessionStartError({
-            message: `Orchestrator reset failed: ${e.message}`,
-            taskId: task.id,
-            phase: "checkout-branch",
-            cause: e,
-          }))
-        )
+      if (usesSlot0) {
+        // Slot 0 is always on the default branch (worker worktrees use numbered slots).
+        // git fetch already ran above; no reset needed — slot 0 is shared and must not
+        // be destructively modified at startup.
+        yield* activity("worktree.ready", "Task using slot 0", { worktreePath, branch, slot: slot.id })
       } else {
         // Checkout the task branch on the acquired slot
         yield* localExec(
@@ -227,7 +210,7 @@ export function startSession(
           }))
         )
       }
-      taskLog.debug("Worktree slot acquired", { worktreePath, branch, slotId: slot.id })
+      taskLog.debug("Worktree slot acquired", { worktreePath, branch, slotId: slot.id, usesSlot0 })
     }
 
     yield* deps.updateTask(task.id, { branch: isRunner ? null : branch, worktree_path: worktreePath }).pipe(
@@ -240,57 +223,63 @@ export function startSession(
     )
 
     // 3. Run setup in background (non-blocking)
-    const setupStatusFile = `/tmp/tangerine-setup-${taskPrefix}.status`
-    const setupLogFile = `/tmp/tangerine-setup-${taskPrefix}.log`
-    const setupSpan = taskLog.startOp("setup")
-    yield* activity("setup.started", `Running setup (background): ${config.setup}`)
+    // Skip for slot 0 — it's shared, so setup could race with other tasks.
+    if (!usesSlot0) {
+      const setupStatusFile = `/tmp/tangerine-setup-${taskPrefix}.status`
+      const setupLogFile = `/tmp/tangerine-setup-${taskPrefix}.log`
+      const setupSpan = taskLog.startOp("setup")
+      yield* activity("setup.started", `Running setup (background): ${config.setup}`)
 
-    const setupCmd = [
-      `echo running > ${setupStatusFile};`,
-      `( cd ${worktreePath} && ${config.setup} ) > ${setupLogFile} 2>&1;`,
-      `if [ $? -eq 0 ]; then echo done > ${setupStatusFile}; else echo failed > ${setupStatusFile}; fi`,
-    ].join(" ")
+      const setupCmd = [
+        `echo running > ${setupStatusFile};`,
+        `( cd ${worktreePath} && ${config.setup} ) > ${setupLogFile} 2>&1;`,
+        `if [ $? -eq 0 ]; then echo done > ${setupStatusFile}; else echo failed > ${setupStatusFile}; fi`,
+      ].join(" ")
 
-    // Fire and forget — nohup so it survives if this process dies
-    Bun.spawn(["bash", "-c", `nohup bash -c '${setupCmd.replace(/'/g, "'\\''")}' </dev/null >/dev/null 2>&1 &`], {
-      cwd: worktreePath,
-      stdout: "ignore",
-      stderr: "ignore",
-      stdin: "ignore",
-    })
-
-    // Monitor setup completion in background (for activity log, not blocking)
-    yield* Effect.forkDaemon(
-      Effect.gen(function* () {
-        for (let i = 0; i < 120; i++) {
-          yield* Effect.sleep("5 seconds")
-          const result = yield* localExec(`cat ${setupStatusFile} 2>/dev/null || echo running`).pipe(
-            Effect.catchAll(() => Effect.succeed({ stdout: "running", stderr: "", exitCode: 0 }))
-          )
-          const status = result.stdout.trim()
-          if (status === "done") {
-            yield* activity("setup.completed", "Setup completed")
-            setupSpan.end()
-            return
-          }
-          if (status === "failed") {
-            const logResult = yield* localExec(`tail -20 ${setupLogFile} 2>/dev/null`).pipe(
-              Effect.catchAll(() => Effect.succeed({ stdout: "(no log)", stderr: "", exitCode: 0 }))
-            )
-            yield* activity("setup.failed", `Setup failed (non-blocking): ${logResult.stdout.trim().slice(0, 500)}`)
-            setupSpan.fail(new Error("Setup failed"))
-            return
-          }
-        }
-        yield* activity("setup.failed", "Setup timed out after 10 minutes")
-        setupSpan.fail(new Error("Setup timed out"))
+      // Fire and forget — nohup so it survives if this process dies
+      Bun.spawn(["bash", "-c", `nohup bash -c '${setupCmd.replace(/'/g, "'\\''")}' </dev/null >/dev/null 2>&1 &`], {
+        cwd: worktreePath,
+        stdout: "ignore",
+        stderr: "ignore",
+        stdin: "ignore",
       })
-    )
+
+      // Monitor setup completion in background (for activity log, not blocking)
+      yield* Effect.forkDaemon(
+        Effect.gen(function* () {
+          for (let i = 0; i < 120; i++) {
+            yield* Effect.sleep("5 seconds")
+            const result = yield* localExec(`cat ${setupStatusFile} 2>/dev/null || echo running`).pipe(
+              Effect.catchAll(() => Effect.succeed({ stdout: "running", stderr: "", exitCode: 0 }))
+            )
+            const status = result.stdout.trim()
+            if (status === "done") {
+              yield* activity("setup.completed", "Setup completed")
+              setupSpan.end()
+              return
+            }
+            if (status === "failed") {
+              const logResult = yield* localExec(`tail -20 ${setupLogFile} 2>/dev/null`).pipe(
+                Effect.catchAll(() => Effect.succeed({ stdout: "(no log)", stderr: "", exitCode: 0 }))
+              )
+              yield* activity("setup.failed", `Setup failed (non-blocking): ${logResult.stdout.trim().slice(0, 500)}`)
+              setupSpan.fail(new Error("Setup failed"))
+              return
+            }
+          }
+          yield* activity("setup.failed", "Setup timed out after 10 minutes")
+          setupSpan.fail(new Error("Setup timed out"))
+        })
+      )
+    }
 
     // 4. Kill any stale agent processes in this worktree
-    yield* localExec(
-      `pkill -f "claude.*${worktreePath}" 2>/dev/null; true`,
-    ).pipe(Effect.catchAll(() => Effect.void))
+    // Skip for slot 0 — it's shared, so we'd kill a concurrent task's agent.
+    if (!usesSlot0) {
+      yield* localExec(
+        `pkill -f "claude.*${worktreePath}" 2>/dev/null; true`,
+      ).pipe(Effect.catchAll(() => Effect.void))
+    }
 
     // 5. Detect fork upstream for PR targeting
     let upstreamSlug: string | undefined
@@ -310,7 +299,7 @@ export function startSession(
     // 6. Start agent locally (with timeout to prevent indefinite hangs)
     yield* activity("agent.starting", "Starting agent")
     const systemNotes = buildSystemNotes(task.id, {
-      setupCommand: config.setup,
+      setupCommand: usesSlot0 ? undefined : config.setup, // slot 0 skips setup
       taskType: task.type ?? undefined,
       prMode: config.prMode,
       customSystemPrompt: resolveCustomSystemPrompt(config, task.type),
@@ -433,8 +422,10 @@ export function reconnectSession(
       }
     }
 
+    // Slot 0 tasks (orchestrator/runner) skip setup — don't advertise it
+    const isSlot0Task = taskType === "orchestrator" || taskType === "runner"
     const systemNotes = buildSystemNotes(task.id, {
-      setupCommand: project?.setup,
+      setupCommand: isSlot0Task ? undefined : project?.setup,
       taskType: taskType,
       prMode: project?.prMode,
       customSystemPrompt: resolved?.systemPrompt,
