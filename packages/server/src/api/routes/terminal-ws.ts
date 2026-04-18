@@ -4,6 +4,9 @@
 // and back re-attaches to the same session with the shell state preserved.
 // Unlike tmux, dtach doesn't capture the mouse, so copy/paste and mobile
 // scroll work natively in xterm.js.
+//
+// Scrollback buffer: dtach doesn't replay output to new connections, so we
+// keep a ring buffer per task and replay it on reconnect.
 
 import { Effect } from "effect"
 import { Hono } from "hono"
@@ -24,6 +27,31 @@ export function dtachSocketPath(taskId: string): string {
   return join(tmpdir(), `tng-${taskId.slice(0, 8)}.dtach`)
 }
 
+const SCROLLBACK_LIMIT = 100 * 1024 // 100KB per task
+const scrollbackBuffers = new Map<string, string>()
+const activeRecorders = new Set<string>() // tasks with an active recording connection
+
+/** Append output to scrollback buffer, trimming if over limit */
+function appendScrollback(taskId: string, data: string): void {
+  const existing = scrollbackBuffers.get(taskId) ?? ""
+  let combined = existing + data
+  if (combined.length > SCROLLBACK_LIMIT) {
+    combined = combined.slice(-SCROLLBACK_LIMIT)
+  }
+  scrollbackBuffers.set(taskId, combined)
+}
+
+/** Get scrollback buffer for a task */
+function getScrollback(taskId: string): string {
+  return scrollbackBuffers.get(taskId) ?? ""
+}
+
+/** Clear scrollback buffer (call on task cleanup) */
+export function clearScrollback(taskId: string): void {
+  scrollbackBuffers.delete(taskId)
+  activeRecorders.delete(taskId)
+}
+
 export function terminalWsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSocket): Hono {
   const app = new Hono()
   type SocketLike = { send(data: string): void; close(code?: number, reason?: string): void }
@@ -39,6 +67,7 @@ export function terminalWsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSock
       let authenticated = !authEnabled || requestAuthenticated
       let authTimer: ReturnType<typeof setTimeout> | null = null
       let started = false
+      let isRecorder = false
 
       const startTerminal = (ws: SocketLike) => {
         if (started) return
@@ -54,6 +83,17 @@ export function terminalWsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSock
 
             log.info("Terminal session starting", { taskId, worktree, socketPath })
 
+            // Replay scrollback buffer BEFORE spawning dtach to avoid race.
+            // Use "scrollback" type so client knows to clear before writing.
+            const scrollback = getScrollback(taskId)
+            if (scrollback) {
+              ws.send(JSON.stringify({ type: "scrollback", data: scrollback }))
+            }
+
+            // Only the first connection records to the buffer to avoid N copies
+            isRecorder = !activeRecorders.has(taskId)
+            if (isRecorder) activeRecorders.add(taskId)
+
             pty = spawn("dtach", [
               "-A", socketPath,
               "-z",
@@ -66,6 +106,14 @@ export function terminalWsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSock
             })
 
             pty.onData((data) => {
+              // Record if we're the recorder, OR take over if no one is recording
+              if (isRecorder || !activeRecorders.has(taskId)) {
+                if (!isRecorder) {
+                  isRecorder = true
+                  activeRecorders.add(taskId)
+                }
+                appendScrollback(taskId, data)
+              }
               if (!alive) return
               try {
                 ws.send(JSON.stringify({ type: "output", data }))
@@ -75,6 +123,8 @@ export function terminalWsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSock
             })
 
             pty.onExit(({ exitCode }) => {
+              // Clear scrollback when shell exits to avoid replaying stale history
+              clearScrollback(taskId)
               if (!alive) return
               try {
                 ws.send(JSON.stringify({ type: "exit", code: exitCode }))
@@ -153,6 +203,8 @@ export function terminalWsRoutes(deps: AppDeps, upgradeWebSocket: UpgradeWebSock
         onClose() {
           if (authTimer) clearTimeout(authTimer)
           alive = false
+          // Release recorder status so next connection can record
+          if (isRecorder) activeRecorders.delete(taskId)
           // Only kill the PTY attachment — the dtach session stays alive
           // so the next connection can re-attach with history preserved.
           if (pty) {
