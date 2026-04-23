@@ -196,7 +196,7 @@ function ThinkingMessage({ message, isActive, duration }: {
 }) {
   const elapsed = useElapsedTime(message.timestamp, isActive)
   const displayDuration = duration ?? elapsed
-  const [expanded, setExpanded] = useState(isActive)
+  const [expanded, setExpanded] = useState(true)
 
   useEffect(() => {
     if (isActive) setExpanded(true)
