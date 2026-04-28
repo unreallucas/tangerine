@@ -171,6 +171,13 @@ export function useSession(taskId: string, initialContextTokens?: number, initia
     activeAssistantStreamIdRef.current = null
   }, [taskId])
 
+  // Clear stale stream ID when disconnected to prevent corrupted messages on reconnect
+  useEffect(() => {
+    if (!connected) {
+      activeAssistantStreamIdRef.current = null
+    }
+  }, [connected])
+
   // Load initial messages + activities via REST
   const refreshFromRest = useCallback(async () => {
     const refreshTaskId = taskId
@@ -279,7 +286,10 @@ export function useSession(taskId: string, initialContextTokens?: number, initia
         const data = msg.data as Record<string, unknown> | undefined
         if (data && typeof data === "object" && data.event === "message.streaming" && typeof data.content === "string") {
           const messageId = typeof data.messageId === "string" ? data.messageId : null
-          const id = messageId ? `assistant-${messageId}` : (activeAssistantStreamIdRef.current ?? `assistant-active-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+          const currentStreamId = activeAssistantStreamIdRef.current
+          // Reuse existing stream ID only if: (1) no messageId (continuation), or (2) messageId matches current stream
+          const shouldReuseStreamId = currentStreamId && (!messageId || currentStreamId === `assistant-${messageId}`)
+          const id = shouldReuseStreamId ? currentStreamId : (messageId ? `assistant-${messageId}` : `assistant-active-${Date.now()}-${Math.random().toString(36).slice(2)}`)
           activeAssistantStreamIdRef.current = id
           setMessages((prev) => applyAssistantStreamMessage(prev, { content: data.content as string, timestamp: data.timestamp }, id, "append"))
           break
@@ -325,8 +335,9 @@ export function useSession(taskId: string, initialContextTokens?: number, initia
             newMsg.images = (imgData as string[]).map((f) => ({ src: `/api/tasks/${taskId}/images/${f}` }))
           }
           const messageId = typeof data.messageId === "string" ? data.messageId : null
-          if (newMsg.role === "assistant" && (messageId || activeAssistantStreamIdRef.current)) {
-            const streamId = messageId ? `assistant-${messageId}` : activeAssistantStreamIdRef.current!
+          // Prioritize existing stream ID to match streaming message, fall back to messageId
+          const streamId = activeAssistantStreamIdRef.current ?? (messageId ? `assistant-${messageId}` : null)
+          if (newMsg.role === "assistant" && streamId) {
             activeAssistantStreamIdRef.current = null
             setMessages((prev) => applyAssistantStreamMessage(prev, {
               content: newMsg.content,
