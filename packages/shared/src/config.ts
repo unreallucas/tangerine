@@ -29,15 +29,24 @@ const defaultReviewerPrompts: z.infer<typeof predefinedPromptSchema>[] = [
   { label: "Approve", text: "Approve" },
 ]
 
-export const taskTypeConfigSchema = z.object({
+const taskTypeConfigObjectSchema = z.object({
   systemPrompt: z.string().optional(),
   predefinedPrompts: z.array(predefinedPromptSchema).optional(),
   agent: z.string().optional(),
   model: z.string().optional(),
   reasoningEffort: z.string().optional(),
-  /** Auto-approve agent permission requests without UI prompt (default: true) */
-  autoApprove: z.boolean().optional(),
+  /** Permission handling for ACP requests. `skipPermissions` applies the agent's full-access mode when exposed. */
+  permissionMode: z.enum(["autoAccept", "skipPermissions"]).optional(),
 })
+
+export const taskTypeConfigSchema = z.unknown().superRefine((value, ctx) => {
+  if (value && typeof value === "object" && !Array.isArray(value) && "autoApprove" in value) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '`autoApprove` was replaced by `permissionMode`; use "autoAccept" or "skipPermissions"',
+    })
+  }
+}).pipe(taskTypeConfigObjectSchema)
 
 export const taskTypesSchema = z.object({
   worker: taskTypeConfigSchema.optional(),
@@ -125,6 +134,7 @@ export type PredefinedPrompt = z.infer<typeof predefinedPromptSchema>
 export type ShortcutConfig = z.infer<typeof shortcutSchema>
 export type ActionCombo = z.infer<typeof actionComboSchema>
 export type AgentConfig = z.infer<typeof agentConfigSchema>
+export type TaskPermissionMode = NonNullable<z.infer<typeof taskTypeConfigSchema>["permissionMode"]>
 export type TaskTypeConfig = z.infer<typeof taskTypeConfigSchema>
 export type ProjectConfig = z.infer<typeof projectConfigSchema>
 export type ResolvedTaskTypeConfig = Omit<TaskTypeConfig, "predefinedPrompts"> & { predefinedPrompts: PredefinedPrompt[] }
@@ -136,6 +146,8 @@ const DEFAULTS: Record<"worker" | "reviewer" | "runner", { predefinedPrompts: Pr
   runner: { predefinedPrompts: defaultRunnerPrompts },
   reviewer: { predefinedPrompts: defaultReviewerPrompts },
 }
+
+export const DEFAULT_TASK_PERMISSION_MODE: TaskPermissionMode = "skipPermissions"
 
 /** Resolve per-task-type config from the taskTypes section, with defaults. */
 export function resolveTaskTypeConfig(
@@ -149,7 +161,7 @@ export function resolveTaskTypeConfig(
     agent: override?.agent,
     model: override?.model,
     reasoningEffort: override?.reasoningEffort,
-    autoApprove: override?.autoApprove,
+    permissionMode: override?.permissionMode ?? DEFAULT_TASK_PERMISSION_MODE,
   }
 }
 

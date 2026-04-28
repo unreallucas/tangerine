@@ -35,6 +35,7 @@ export {
   actionComboSchema,
   agentConfigSchema,
   tangerineConfigSchema,
+  DEFAULT_TASK_PERMISSION_MODE,
   resolveDefaultAgentId,
   resolveTaskTypeConfig,
 } from "./config"
@@ -43,6 +44,7 @@ export type {
   ActionCombo,
   AgentConfig,
   PredefinedPrompt,
+  TaskPermissionMode,
   TaskTypeConfig,
   ProjectConfig,
   ShortcutConfig,

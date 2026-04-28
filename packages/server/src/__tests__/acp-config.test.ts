@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { tangerineConfigSchema } from "@tangerine/shared"
+import { resolveTaskTypeConfig, tangerineConfigSchema } from "@tangerine/shared"
+import { resolveTaskPermissionMode } from "../tasks/lifecycle"
 
 describe("ACP agent config", () => {
   test("parses configured ACP agents and default agent", () => {
@@ -43,5 +44,48 @@ describe("ACP agent config", () => {
     expect(config.projects[0]?.taskTypes?.runner?.agent).toBe("codex")
     expect(config.projects[0]?.taskTypes?.runner?.model).toBe("gpt-5")
     expect(config.projects[0]?.taskTypes?.runner?.reasoningEffort).toBe("high")
+  })
+
+  test("parses task-type permission mode defaults", () => {
+    const config = tangerineConfigSchema.parse({
+      defaultAgent: "acp",
+      agents: [{ id: "acp", name: "Default ACP", command: "acp-agent" }],
+      projects: [
+        {
+          name: "app",
+          repo: "org/app",
+          setup: "bun install",
+          taskTypes: {
+            worker: { permissionMode: "skipPermissions" },
+            reviewer: { permissionMode: "autoAccept" },
+          },
+        },
+      ],
+    })
+
+    expect(resolveTaskTypeConfig(config.projects[0]!, "worker").permissionMode).toBe("skipPermissions")
+    expect(resolveTaskTypeConfig(config.projects[0]!, "reviewer").permissionMode).toBe("autoAccept")
+    expect(resolveTaskTypeConfig(config.projects[0]!, "runner").permissionMode).toBe("skipPermissions")
+    expect(resolveTaskPermissionMode(config.projects[0]!, "runner")).toBe("skipPermissions")
+  })
+
+  test("rejects legacy autoApprove task-type config", () => {
+    const parsed = tangerineConfigSchema.safeParse({
+      defaultAgent: "acp",
+      agents: [{ id: "acp", name: "Default ACP", command: "acp-agent" }],
+      projects: [
+        {
+          name: "app",
+          repo: "org/app",
+          setup: "bun install",
+          taskTypes: {
+            worker: { autoApprove: false },
+          },
+        },
+      ],
+    })
+
+    expect(parsed.success).toBe(false)
+    expect(parsed.error?.issues[0]?.message).toContain("permissionMode")
   })
 })
