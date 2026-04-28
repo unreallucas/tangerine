@@ -18,7 +18,7 @@ Adapters normalize provider-specific SDK events into ACP. Tangerine still owns A
 
 - merge `agent_message_chunk` into one live assistant message
 - merge `agent_thought_chunk` into one live Thought card
-- persist only final assistant/thinking messages after `session/prompt` completes
+- persist only final assistant/thinking messages after `session/prompt` completes while keeping in-memory active stream snapshots for task-switch reloads
 - render non-text content blocks; do not render text chunks as generic content cards
 - merge `tool_call_update` entries into the matching tool activity by `toolCallId`, including streamed/replaced result text from `content` or `rawOutput`
 - map `models` / `modes` compatibility fields into selectors
