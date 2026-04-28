@@ -230,6 +230,11 @@ export async function fetchTaskSlashCommands(id: string): Promise<AgentSlashComm
   return Array.isArray(body?.commands) ? body.commands : []
 }
 
+export async function fetchPendingPermission(id: string): Promise<import("@tangerine/shared").PermissionRequest | null> {
+  const body = await request<{ permissionRequest?: import("@tangerine/shared").PermissionRequest | null }>(`/api/tasks/${id}/permission`)
+  return body?.permissionRequest ?? null
+}
+
 export async function sendPrompt(id: string, text: string): Promise<void> {
   return request<void>(`/api/tasks/${id}/prompt`, {
     method: "POST",
@@ -245,6 +250,13 @@ export async function changeTaskConfig(id: string, config: { model?: string; rea
   return request<void>(`/api/tasks/${id}/model`, {
     method: "POST",
     body: JSON.stringify(config),
+  })
+}
+
+export async function respondToPermission(id: string, requestId: string, optionId: string): Promise<void> {
+  return request<void>(`/api/tasks/${id}/permission`, {
+    method: "POST",
+    body: JSON.stringify({ requestId, optionId }),
   })
 }
 
