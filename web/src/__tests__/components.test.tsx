@@ -1683,7 +1683,50 @@ describe("ChatMessage inline actions", () => {
 })
 
 describe("AssistantMessageGroups tool summaries", () => {
-  test("renders a second summary bar at the bottom when expanded", () => {
+  test("keeps assistant messages in timeline order around collapsed tool summaries", () => {
+    const messages = [
+      { id: "assistant-1", role: "assistant", content: "First answer", timestamp: "2026-04-18T12:00:00.000Z" },
+      { id: "assistant-2", role: "assistant", content: "Second answer", timestamp: "2026-04-18T12:00:10.000Z" },
+    ]
+    const activities = [
+      makeActivity({
+        id: 101,
+        event: "tool.write",
+        metadata: {
+          toolName: "Write",
+          toolInput: { file_path: "web/src/one.tsx" },
+          status: "success",
+        },
+        timestamp: "2026-04-18T12:00:03.000Z",
+      }),
+      makeActivity({
+        id: 102,
+        event: "tool.write",
+        metadata: {
+          toolName: "Write",
+          toolInput: { file_path: "web/src/two.tsx" },
+          status: "success",
+        },
+        timestamp: "2026-04-18T12:00:04.000Z",
+      }),
+    ]
+
+    const { container } = render(
+      <MemoryRouter>
+        <AssistantMessageGroups
+          messages={messages}
+          activities={activities}
+          isLastGroupStreaming={false}
+        />
+      </MemoryRouter>
+    )
+
+    const content = container.textContent || ""
+    expect(content.indexOf("First answer")).toBeLessThan(content.indexOf("2 tools"))
+    expect(content.indexOf("2 tools")).toBeLessThan(content.indexOf("Second answer"))
+  })
+
+  test("expands tool summaries in place without duplicate summary bars", () => {
     const timestamp = "2026-04-18T12:00:00.000Z"
     const messages = [
       { id: "assistant-1", role: "assistant", content: "Done", timestamp },
@@ -1725,7 +1768,137 @@ describe("AssistantMessageGroups tool summaries", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /2 tools · 2 files/i }))
 
-    expect(screen.getAllByRole("button", { name: /2 tools · 2 files/i })).toHaveLength(2)
+    expect(screen.getAllByRole("button", { name: /2 tools · 2 files/i })).toHaveLength(1)
+    expect(screen.getAllByText(/web\/src\/one\.tsx/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/web\/src\/two\.tsx/).length).toBeGreaterThan(0)
+  })
+
+  test("keeps completed tool summaries non-streaming while later tool segment runs", () => {
+    const messages = [
+      { id: "assistant-1", role: "assistant", content: "First work done", timestamp: "2026-04-18T12:00:03.000Z" },
+    ]
+    const activities = [
+      makeActivity({
+        id: 101,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/one.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:00.000Z",
+      }),
+      makeActivity({
+        id: 102,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/two.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:02.000Z",
+      }),
+      makeActivity({
+        id: 103,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/three.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:04.000Z",
+      }),
+      makeActivity({
+        id: 104,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/four.tsx" }, status: "running" },
+        timestamp: "2026-04-18T12:00:05.000Z",
+      }),
+    ]
+
+    render(
+      <MemoryRouter>
+        <AssistantMessageGroups
+          messages={messages}
+          activities={activities}
+          isLastGroupStreaming={true}
+        />
+      </MemoryRouter>
+    )
+
+    const summaries = screen.getAllByRole("button", { name: /2 tools · 2 files/i })
+    expect(summaries).toHaveLength(2)
+    expect(summaries[0]!.textContent).toContain("2s")
+  })
+
+  test("expands only the selected tool summary segment", () => {
+    const messages = [
+      { id: "assistant-1", role: "assistant", content: "Between work", timestamp: "2026-04-18T12:00:03.000Z" },
+    ]
+    const activities = [
+      makeActivity({
+        id: 101,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/one.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:00.000Z",
+      }),
+      makeActivity({
+        id: 102,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/two.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:01.000Z",
+      }),
+      makeActivity({
+        id: 103,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/three.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:04.000Z",
+      }),
+      makeActivity({
+        id: 104,
+        event: "tool.write",
+        metadata: { toolName: "Write", toolInput: { file_path: "web/src/four.tsx" }, status: "success" },
+        timestamp: "2026-04-18T12:00:05.000Z",
+      }),
+    ]
+
+    render(
+      <MemoryRouter>
+        <AssistantMessageGroups
+          messages={messages}
+          activities={activities}
+          isLastGroupStreaming={false}
+        />
+      </MemoryRouter>
+    )
+
+    const summaries = screen.getAllByRole("button", { name: /2 tools · 2 files/i })
+    fireEvent.click(summaries[0]!)
+
+    expect(screen.getAllByText(/web\/src\/one\.tsx/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/web\/src\/two\.tsx/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/web\/src\/three\.tsx/)).toBeNull()
+    expect(screen.queryByText(/web\/src\/four\.tsx/)).toBeNull()
+  })
+
+  test("shows specific streaming status instead of generic working text", () => {
+    const messages = [
+      { id: "assistant-1", role: "assistant", content: "Working", timestamp: "2026-04-18T12:00:00.000Z" },
+    ]
+    const activities = [
+      makeActivity({
+        id: 101,
+        event: "tool.bash",
+        content: "Bash",
+        metadata: {
+          toolName: "Bash",
+          toolInput: { command: "bun test" },
+          status: "running",
+        },
+        timestamp: "2026-04-18T12:00:01.000Z",
+      }),
+    ]
+
+    render(
+      <MemoryRouter>
+        <AssistantMessageGroups
+          messages={messages}
+          activities={activities}
+          isLastGroupStreaming={true}
+        />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText("Bash · bun test")).toBeTruthy()
+    expect(screen.queryByText("Agent is working...")).toBeNull()
   })
 })
 
