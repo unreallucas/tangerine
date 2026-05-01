@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useParams, Link, useOutletContext } from "react-router-dom"
 import type { SidebarContext } from "../components/Layout"
 import { resolveTaskTypeConfig, type Task } from "@tangerine/shared"
-import { fetchTask, fetchChildTasks, changeTaskConfig, markTaskSeen, resolveTask, startTask } from "../lib/api"
+import { fetchTask, fetchChildTasks, changeTaskConfig, markTaskSeen, resolveTask, startTask, startTuiMode, stopTuiMode } from "../lib/api"
 import { getTaskDisplayStatus, getPrStatusConfig } from "../lib/status"
 import { useSession } from "../hooks/useSession"
 import { useProject } from "../context/ProjectContext"
@@ -16,6 +16,7 @@ import { ActivityList } from "../components/ActivityList"
 import { ChangesPanel as DiffSidebar, type DiffComment } from "../components/ChangesPanel"
 import { ResizeHandle, PaneToggle } from "../components/PaneControls"
 import { TerminalPane } from "../components/TerminalPane"
+import { TuiPane } from "../components/TuiPane"
 import { formatPrNumber, formatTaskTitle } from "../lib/format"
 import {
   getResponsiveVisiblePanes,
@@ -261,6 +262,24 @@ export function TaskDetail() {
   const hasPredefinedPrompts = chatTask?.capabilities.includes("predefined-prompts") ?? false
   const hasDiff = task?.capabilities.includes("diff") ?? false
   const canContinue = chatTask?.capabilities.includes("continue") ?? false
+  const hasTui = chatTask?.capabilities.includes("tui") ?? false
+
+  const [tuiToggling, setTuiToggling] = useState(false)
+  const handleTuiToggle = useCallback(async () => {
+    if (!chatTask || tuiToggling) return
+    setTuiToggling(true)
+    try {
+      if (session.tuiMode) {
+        await stopTuiMode(chatTask.id)
+      } else {
+        await startTuiMode(chatTask.id)
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to toggle TUI")
+    } finally {
+      setTuiToggling(false)
+    }
+  }, [chatTask, session.tuiMode, tuiToggling, showToast])
 
   const resolvedPrompts = useMemo(() => {
     if (!hasPredefinedPrompts || !chatTask || !current) return undefined
@@ -582,7 +601,7 @@ export function TaskDetail() {
                 </PaneToggle>
               </div>
               <div className="h-5 w-px bg-border" />
-              <TaskOverflowMenu task={task} onRefetch={handleRefetch} size="md" />
+              <TaskOverflowMenu task={task} onRefetch={handleRefetch} size="md" tuiMode={session.tuiMode} onTuiToggle={hasTui ? handleTuiToggle : undefined} />
             </div>
           </div>
         </div>
@@ -636,6 +655,9 @@ export function TaskDetail() {
               mobilePane === "chat" ? "flex-1" : "hidden",
               responsiveVisiblePanes.has("chat") ? "md:flex md:flex-1" : "md:hidden",
             ].join(" ")}>
+              {session.tuiMode ? (
+                <TuiPane taskId={chatTaskId!} />
+              ) : (
               <ChatPanel
                 messages={session.messages}
                 activities={session.activities}
@@ -671,6 +693,7 @@ export function TaskDetail() {
                 permissionRequest={session.permissionRequest}
                 onPermissionRespond={session.respondToPermission}
               />
+              )}
             </div>
           )}
 
