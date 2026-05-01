@@ -53,6 +53,7 @@ export function TerminalToolbar({ termRef, onInput }: TerminalToolbarProps) {
         const text = await readClipboard()
         if (text) {
           onInput(text)
+          termRef.current?.focus()
         } else {
           setShowPasteInput(true)
           requestAnimationFrame(() => pasteRef.current?.focus())
@@ -68,11 +69,12 @@ export function TerminalToolbar({ termRef, onInput }: TerminalToolbarProps) {
   function handlePress(key: KeyDef) {
     if (typeof key.input === "function") {
       key.input()
+      // Async handlers manage their own focus
     } else {
       onInput(key.input)
+      // Refocus terminal after key press so the software keyboard stays up
+      termRef.current?.focus()
     }
-    // Refocus terminal after key press so the software keyboard stays up
-    termRef.current?.focus()
   }
 
   function submitPaste() {
