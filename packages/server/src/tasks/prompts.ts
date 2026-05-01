@@ -24,7 +24,7 @@ export interface SystemNotesInfo {
   projectId?: string
 }
 
-const DEFAULT_STYLE = `[STYLE: Be extremely short and concise in all responses — sacrifice grammar for brevity. Key info only, no walls of text. Applies to all conversations and reviews.]`
+const DEFAULT_STYLE = `[STYLE: Extremely short responses. Sacrifice grammar for brevity. Key info only, no walls. All conversations + reviews.]`
 
 /**
  * Build the PR workflow instruction: rename branch, push, create PR.
@@ -34,28 +34,28 @@ export function buildPrWorkflowNote(taskId: string, port = apiPort(), prMode: "r
   const repoFlag = upstreamSlug ? ` --repo ${upstreamSlug}` : ""
   const prCommand =
     prMode === "none"
-      ? "nothing — prMode is none, do NOT push or create a PR."
+      ? "nothing — prMode=none, no push/PR."
       : prMode === "ready"
         ? `\`git push -u origin HEAD\` then \`gh pr create${repoFlag}\`.`
         : `\`git push -u origin HEAD\` then \`gh pr create --draft${repoFlag}\`.`
   return (
-    `1) Rename your branch via: curl -X POST ${AUTH_CURL_FLAG} http://localhost:${port}/api/tasks/${taskId}/rename-branch ` +
-    `-H "Content-Type: application/json" -d '{"branch":"fix/<descriptive-slug>"}'. ` +
-    `2) Push and create a PR with ${prCommand}`
+    `1) Rename branch: curl -X POST ${AUTH_CURL_FLAG} http://localhost:${port}/api/tasks/${taskId}/rename-branch ` +
+    `-H "Content-Type: application/json" -d '{"branch":"fix/<slug>"}'. ` +
+    `2) ${prCommand}`
   )
 }
 
 /** Build a mandatory prMode instruction injected into the system prompt. */
 function buildPrModeInstruction(prMode: "ready" | "draft" | "none", upstreamSlug?: string): string {
   const repoFlag = upstreamSlug ? ` --repo ${upstreamSlug}` : ""
-  const forkNote = upstreamSlug ? ` This is a fork — PRs must target the upstream repo (${upstreamSlug}).` : ""
+  const forkNote = upstreamSlug ? ` Fork — PRs target upstream (${upstreamSlug}).` : ""
   if (prMode === "ready") {
-    return `This project's prMode is "ready". You MUST create a ready-to-review PR: \`gh pr create${repoFlag}\`. Never use --draft.${forkNote}`
+    return `prMode="ready". MUST create ready PR: \`gh pr create${repoFlag}\`. No --draft.${forkNote}`
   }
   if (prMode === "none") {
-    return `This project's prMode is "none". Do NOT push or create a PR. Just commit your work and stop.`
+    return `prMode="none". No push, no PR. Commit and stop.`
   }
-  return `This project's prMode is "draft". You MUST pass --draft when creating PRs: \`gh pr create --draft${repoFlag}\`. Never create a ready PR.${forkNote}`
+  return `prMode="draft". MUST use --draft: \`gh pr create --draft${repoFlag}\`. No ready PRs.${forkNote}`
 }
 
 /**
@@ -64,23 +64,23 @@ function buildPrModeInstruction(prMode: "ready" | "draft" | "none", upstreamSlug
  */
 export function buildSystemLayer(taskId: string, info: SystemNotesInfo, port = apiPort()): string[] {
   const notes: string[] = []
-  notes.push(`[TANGERINE: You are running inside a Tangerine task (task ID: ${taskId}). The Tangerine API is at http://localhost:${port}. Load the tangerine-tasks skill for full API reference and common workflows.]`)
-  notes.push(`[AUTH: Check http://localhost:${port}/api/auth/session before private Tangerine API calls. If auth is enabled, TANGERINE_AUTH_TOKEN must be set and every private curl must include ${AUTH_CURL_FLAG}. If auth is disabled, the header is optional and ignored.]`)
+  notes.push(`[TANGERINE: Task ${taskId}. API: http://localhost:${port}. Load tangerine-tasks skill for API ref.]`)
+  notes.push(`[AUTH: Check http://localhost:${port}/api/auth/session first. Auth enabled → TANGERINE_AUTH_TOKEN + ${AUTH_CURL_FLAG} required. Auth disabled → header optional.]`)
 
   if (info.taskType === "worker") {
     const prMode = info.prMode ?? "none"
     const prModeInstruction = buildPrModeInstruction(prMode, info.upstreamSlug)
     notes.push(`[PR MODE — CRITICAL: ${prModeInstruction}]`)
     if (prMode !== "none") {
-      notes.push(`[NOTE: When your work is complete: ${buildPrWorkflowNote(taskId, port, prMode, info.upstreamSlug)} Do not stop at just committing.]`)
-      notes.push(`[PR TEMPLATE: Before running \`gh pr create\`, check for a PR template: \`cat .github/pull_request_template.md 2>/dev/null || cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null\`. If a PR template exists in the repo, you MUST use it as the structure for your PR body. Follow it strictly — do not skip sections, do not add sections not in the template.]`)
+      notes.push(`[DONE: ${buildPrWorkflowNote(taskId, port, prMode, info.upstreamSlug)} Don't stop at commit.]`)
+      notes.push(`[PR TEMPLATE: Check first: \`cat .github/pull_request_template.md 2>/dev/null || cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null\`. If exists, MUST use as PR body. Follow strictly — no skipped/added sections.]`)
     }
   }
 
   if (info.taskType === "runner") {
-    const projectNote = info.projectId ? `, projectId to "${info.projectId}"` : ""
-    notes.push(`[RUNNER: No worktree/branch — no PR. Run commands on project root, no code changes. Implementation work → POST /api/tasks immediately, no confirmation. Worker tasks: clear title, full context in description (worker has no conversation access), parentTaskId="${taskId}"${projectNote}. Done → POST /api/tasks/${taskId}/done.]`)
-    notes.push(`[MULTI-REQUEST: Multiple unrelated requests possible. Group related → same worker. Unrelated → new worker. Example: "fix login" → worker A; "update README" → unrelated, worker B.]`)
+    const projectNote = info.projectId ? `, projectId="${info.projectId}"` : ""
+    notes.push(`[RUNNER: No worktree — no PR. Commands only, no code changes. Implementation → POST /api/tasks immediately. Workers: clear title + full context (no convo access), parentTaskId="${taskId}"${projectNote}. Done → POST /api/tasks/${taskId}/done.]`)
+    notes.push(`[MULTI-REQUEST: Multiple requests possible. Related → same worker. Unrelated → separate workers. Ex: "fix login" → worker A; "update README" → worker B.]`)
   }
 
   return notes
@@ -100,7 +100,7 @@ export function buildUserLayer(taskId: string, info: SystemNotesInfo): string[] 
   notes.push(DEFAULT_STYLE)
   if (info.setupCommand) {
     const prefix = taskId.slice(0, 8)
-    notes.push(`[NOTE: Project setup is running in the background (\`${info.setupCommand}\`). Before running builds, tests, or linters, check if setup is done: \`cat /tmp/tangerine-setup-${prefix}.status\` (running/done/failed). Log: \`cat /tmp/tangerine-setup-${prefix}.log\`]`)
+    notes.push(`[SETUP: Running \`${info.setupCommand}\` in background. Before builds/tests/linters: \`cat /tmp/tangerine-setup-${prefix}.status\` (running/done/failed). Log: \`cat /tmp/tangerine-setup-${prefix}.log\`]`)
   }
   return notes
 }
