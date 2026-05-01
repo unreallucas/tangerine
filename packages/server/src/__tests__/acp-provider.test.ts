@@ -48,6 +48,30 @@ describe("resolveAcpCommand", () => {
     expect(command.shellCommand).toBe("codex-acp --model gpt-5")
     expect(command.checkCommand).toBe("codex-acp")
   })
+
+  test("extracts package name from bunx wrapper command", () => {
+    const command = resolveAcpCommand({ TANGERINE_ACP_COMMAND: "bunx --bun @agentclientprotocol/claude-agent-acp" })
+
+    expect(command.checkCommand).toBe("claude-agent-acp")
+  })
+
+  test("extracts package name from npx wrapper command", () => {
+    const command = resolveAcpCommand({ TANGERINE_ACP_COMMAND: "npx -y @agentclientprotocol/claude-agent-acp" })
+
+    expect(command.checkCommand).toBe("claude-agent-acp")
+  })
+
+  test("extracts unscoped package name from bunx", () => {
+    const command = resolveAcpCommand({ TANGERINE_ACP_COMMAND: "bunx claude-code-acp" })
+
+    expect(command.checkCommand).toBe("claude-code-acp")
+  })
+
+  test("handles yarn dlx package runner", () => {
+    const command = resolveAcpCommand({ TANGERINE_ACP_COMMAND: "yarn dlx @scope/claude-acp" })
+
+    expect(command.checkCommand).toBe("claude-acp")
+  })
 })
 
 describe("buildAcpPromptBlocks", () => {

@@ -92,10 +92,58 @@ export interface AcpAgentCapabilities {
   close: boolean
 }
 
-const ACP_AGENT_METADATA: AgentMetadata = {
-  displayName: "ACP",
-  abbreviation: "ACP",
-  cliCommand: resolveAcpCommand(process.env).checkCommand,
+const PACKAGE_RUNNERS = ["bunx", "npx", "pnpx", "yarn"]
+const PACKAGE_RUNNER_FLAGS = new Set(["--bun", "-y", "--yes", "-p", "--package", "dlx"])
+
+function shellTokenize(command: string): string[] {
+  const tokens: string[] = []
+  let current = ""
+  let inQuote: "'" | '"' | null = null
+
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i]!
+    if (inQuote) {
+      if (char === inQuote) {
+        inQuote = null
+      } else {
+        current += char
+      }
+    } else if (char === '"' || char === "'") {
+      inQuote = char
+    } else if (/\s/.test(char)) {
+      if (current) {
+        tokens.push(current)
+        current = ""
+      }
+    } else {
+      current += char
+    }
+  }
+  if (current) tokens.push(current)
+  return tokens
+}
+
+function extractCheckCommand(shellCommand: string): string {
+  const tokens = shellTokenize(shellCommand)
+  const first = tokens[0]
+  if (!first) return DEFAULT_ACP_COMMAND
+
+  const firstBase = first.split("/").pop() ?? first
+
+  if (!PACKAGE_RUNNERS.includes(firstBase)) return first
+
+  // Skip package runner and its flags to find package name
+  for (let i = 1; i < tokens.length; i++) {
+    const token = tokens[i]!
+    if (token.startsWith("-") || PACKAGE_RUNNER_FLAGS.has(token)) continue
+    // For scoped packages like @scope/pkg, extract just the package name
+    if (token.startsWith("@") && token.includes("/")) {
+      return token.split("/")[1]!
+    }
+    return token
+  }
+
+  return first
 }
 
 export function resolveAcpCommand(env: Record<string, string | undefined>): AcpCommandConfig {
@@ -109,9 +157,10 @@ function resolveProviderCommand(config: AcpProviderConfig | undefined, env: Reco
   return { shellCommand, checkCommand: extractCheckCommand(shellCommand) }
 }
 
-function extractCheckCommand(shellCommand: string): string {
-  const match = shellCommand.match(/^\s*(?:"([^"]+)"|'([^']+)'|(\S+))/)
-  return match?.[1] ?? match?.[2] ?? match?.[3] ?? DEFAULT_ACP_COMMAND
+const ACP_AGENT_METADATA: AgentMetadata = {
+  displayName: "ACP",
+  abbreviation: "ACP",
+  cliCommand: resolveAcpCommand(process.env).checkCommand,
 }
 
 const CLAUDE_ACP_COMMANDS = ["claude-code-acp", "claude-acp", "claude-agent-acp"]
